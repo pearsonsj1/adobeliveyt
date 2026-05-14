@@ -11,18 +11,8 @@ interface LiveSectionProps {
   upcomingStreams: LiveStream[];
 }
 
-/** Poll ~2 minutes after each wall-clock hour so YouTube has time to mark the stream live. */
+/** Poll `/api/live` on mount, every 90s, and ~2 minutes past each hour (YouTube often flips live shortly after the hour). */
 const POLL_MINUTES_PAST_HOUR = 2;
-/** Right after the hour, do one immediate check (stream may have just flipped live). */
-const EARLY_WINDOW_MS = 4 * 60 * 1000;
-
-function msUntilNextPollTwoPast(): number {
-  const now = new Date();
-  const target = new Date(now);
-  target.setMinutes(POLL_MINUTES_PAST_HOUR, 0, 0);
-  if (target <= now) target.setHours(target.getHours() + 1);
-  return target.getTime() - now.getTime();
-}
 
 function useHourAlignedLivePoll(
   enabled: boolean,
@@ -45,26 +35,32 @@ function useHourAlignedLivePoll(
       }
     }
 
-    function scheduleNext() {
+    function msUntilNextPollTwoPast(): number {
+      const now = new Date();
+      const target = new Date(now);
+      target.setMinutes(POLL_MINUTES_PAST_HOUR, 0, 0);
+      if (target <= now) target.setHours(target.getHours() + 1);
+      return target.getTime() - now.getTime();
+    }
+
+    function scheduleHourPoll() {
       if (timeoutRef.id) clearTimeout(timeoutRef.id);
       timeoutRef.id = setTimeout(async () => {
-        await pollOne();
+        await pollOnce();
+        if (!cancelled) scheduleHourPoll();
       }, msUntilNextPollTwoPast());
     }
 
-    async function pollOne() {
-      await pollOnce();
-      if (!cancelled) scheduleNext();
-    }
-
-    const now = new Date();
-    const msPastHour = now.getMinutes() * 60_000 + now.getSeconds() * 1000 + now.getMilliseconds();
-    if (msPastHour < EARLY_WINDOW_MS) void pollOne();
-    else scheduleNext();
+    void pollOnce();
+    scheduleHourPoll();
+    const intervalId = setInterval(() => {
+      void pollOnce();
+    }, 90_000);
 
     return () => {
       cancelled = true;
       if (timeoutRef.id) clearTimeout(timeoutRef.id);
+      clearInterval(intervalId);
     };
   }, [enabled, setLivePoll]);
 }

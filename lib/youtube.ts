@@ -87,11 +87,11 @@ const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 const PROXY = `${SUPABASE_URL}/functions/v1/youtube-proxy`;
 const CHANNEL_ID = process.env.ADOBE_LIVE_CHANNEL_ID ?? "UCVMJPRXrBIOFDBZEaF-_pEA";
 
-// Live status refreshes once per hour; video content every 24 h; everything else every 48 h.
-// Stale data is always served rather than discarding it on quota exhaustion.
+// Live list uses a short TTL so new broadcasts appear without hour-long stale empties.
+const LIVE_NOW_CACHE_TTL_MS = 2 * 60 * 1000;
+// Video content every 24 h; everything else every 48 h.
 const CACHE_TTL_MS = 48 * 60 * 60 * 1000;
 const VIDEO_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-const LIVE_CACHE_TTL_MS = 60 * 60 * 1000;
 
 // YouTube quota resets at midnight Pacific. We mark quota exhaustion in the DB
 // and clear it after 24 hours so the next day's quota gets used automatically.
@@ -601,7 +601,7 @@ async function fetchLiveDetails(ids: string[]): Promise<Map<string, YTVideoItem>
 // Public API — live streams (shared fetch + Supabase youtube_cache key live_now)
 // ---------------------------------------------------------------------------
 
-/** YouTube search + live details; no cache read/write — used by getLiveNow / refreshLiveNowCache. */
+/** YouTube search + live details; no cache read/write — used by fetchLiveStreamsCombined. */
 async function fetchLiveStreamsFromApi(): Promise<LiveStream[]> {
   try {
     const search = await proxyFetch("live") as YTSearchResponse | null;
@@ -632,6 +632,47 @@ async function fetchLiveStreamsFromApi(): Promise<LiveStream[]> {
   }
 }
 
+/** Fallback when YouTube search returns no live (API lag, quota, or proxy hiccup) but indexers marked rows live. */
+async function getLiveStreamsFromIndex(): Promise<LiveStream[]> {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return [];
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/video_index?select=id,title,description,thumbnail_url,video_url,scheduled_time&stream_status=eq.live&order=scheduled_time.desc&limit=5`,
+      { headers: dbHeaders(), cache: "no-store" },
+    );
+    if (!res.ok) return [];
+    const rows = await res.json() as Array<{
+      id: string;
+      title: string;
+      description: string;
+      thumbnail_url: string;
+      video_url: string;
+      scheduled_time: string | null;
+    }>;
+    return rows.map(
+      (r): LiveStream => ({
+        id: r.id,
+        title: r.title,
+        thumbnail: r.thumbnail_url,
+        scheduledTime: r.scheduled_time,
+        viewerCount: null,
+        isLive: true,
+        videoUrl: r.video_url,
+        host: "Adobe Live",
+        description: r.description ?? "",
+      }),
+    );
+  } catch {
+    return [];
+  }
+}
+
+async function fetchLiveStreamsCombined(): Promise<LiveStream[]> {
+  const fromApi = await fetchLiveStreamsFromApi();
+  if (fromApi.length > 0) return fromApi;
+  return getLiveStreamsFromIndex();
+}
+
 async function writeYoutubeCacheData(key: string, data: unknown): Promise<void> {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return;
   try {
@@ -644,15 +685,15 @@ async function writeYoutubeCacheData(key: string, data: unknown): Promise<void> 
   } catch { /* best-effort */ }
 }
 
-/** Force a live check and refresh `live_now` in Supabase (for hour-aligned client polling). */
+/** Force a live check and refresh `live_now` in Supabase (for client polling). */
 export async function refreshLiveNowCache(): Promise<LiveStream[]> {
-  const fresh = await fetchLiveStreamsFromApi();
+  const fresh = await fetchLiveStreamsCombined();
   await writeYoutubeCacheData("live_now", fresh);
   return fresh;
 }
 
 export async function getLiveNow(): Promise<LiveStream[]> {
-  return withCache("live_now", fetchLiveStreamsFromApi, LIVE_CACHE_TTL_MS, true);
+  return withCache("live_now", fetchLiveStreamsCombined, LIVE_NOW_CACHE_TTL_MS, true);
 }
 
 async function getUpcomingStreamsFromIndex(): Promise<LiveStream[]> {
@@ -941,77 +982,71 @@ export async function getRecurringSeries(): Promise<RecurringSeries[]> {
   return withCache("recurring_series", async () => RECURRING_SERIES);
 }
 
-// getSchedule reads upcoming streams from the video_index DB (always current,
-// no quota cost) and overlays real-time live status from the YouTube API (short TTL).
+// getSchedule reads upcoming streams from the video_index DB on every request (no long-lived
+// schedule cache — that hid fresh rows for up to an hour) and overlays live status via live_now.
 export async function getSchedule(): Promise<ScheduleItem[]> {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return [];
 
-  return withCache("schedule", async () => {
-    try {
-      // 1. Read all upcoming streams from the DB — covers the full future window
-      const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/video_index?select=id,title,description,thumbnail_url,video_url,tags,scheduled_time,actual_start_time,stream_status&stream_status=in.(upcoming,live)&order=scheduled_time.asc`,
-        { headers: dbHeaders(), cache: "no-store" },
-      );
-      const dbRows = res.ok
-        ? (await res.json() as Array<{
-            id: string; title: string; description: string; thumbnail_url: string;
-            video_url: string; tags: string[]; scheduled_time: string | null;
-            actual_start_time: string | null; stream_status: string;
-          }>)
-        : [];
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/video_index?select=id,title,description,thumbnail_url,video_url,tags,scheduled_time,actual_start_time,stream_status&stream_status=in.(upcoming,live)&order=scheduled_time.asc`,
+      { headers: dbHeaders(), cache: "no-store" },
+    );
+    const dbRows = res.ok
+      ? (await res.json() as Array<{
+          id: string; title: string; description: string; thumbnail_url: string;
+          video_url: string; tags: string[]; scheduled_time: string | null;
+          actual_start_time: string | null; stream_status: string;
+        }>)
+      : [];
 
-      // 2. Check which streams are actually live right now — reuses the same cache key as
-      // getLiveNow() so both functions share a single API call per hour.
-      const liveNowFull = await withCache("live_now", fetchLiveStreamsFromApi, LIVE_CACHE_TTL_MS, true);
-      const liveSet = new Set<string>(liveNowFull.map((s) => s.id));
+    const liveNowFull = await withCache("live_now", fetchLiveStreamsCombined, LIVE_NOW_CACHE_TTL_MS, true);
+    const liveSet = new Set<string>(liveNowFull.map((s) => s.id));
 
-      // 3. Re-index only when upcoming data is stale (>4 h) to avoid redundant API quota use.
-      (async () => {
-        try {
-          const staleRes = await fetch(
-            `${SUPABASE_URL}/rest/v1/video_index?select=last_seen_at&stream_status=in.(upcoming,live)&order=last_seen_at.desc&limit=1`,
-            { headers: dbHeaders(), cache: "no-store" },
-          );
-          const staleRows = staleRes.ok ? await staleRes.json() as { last_seen_at: string }[] : [];
-          const lastSeen = staleRows[0]?.last_seen_at;
-          const ageMs = lastSeen ? Date.now() - new Date(lastSeen).getTime() : Infinity;
-          if (ageMs > 4 * 60 * 60 * 1000) {
-            fetch(`${SUPABASE_URL}/functions/v1/index-all-videos`, {
-              method: "POST",
-              headers: { Authorization: `Bearer ${SUPABASE_ANON_KEY}`, "Content-Type": "application/json" },
-              cache: "no-store",
-            }).catch(() => {});
-          }
-        } catch { /* best-effort */ }
-      })();
+    (async () => {
+      try {
+        const staleRes = await fetch(
+          `${SUPABASE_URL}/rest/v1/video_index?select=last_seen_at&stream_status=in.(upcoming,live)&order=last_seen_at.desc&limit=1`,
+          { headers: dbHeaders(), cache: "no-store" },
+        );
+        const staleRows = staleRes.ok ? await staleRes.json() as { last_seen_at: string }[] : [];
+        const lastSeen = staleRows[0]?.last_seen_at;
+        const ageMs = lastSeen ? Date.now() - new Date(lastSeen).getTime() : Infinity;
+        if (ageMs > 4 * 60 * 60 * 1000) {
+          fetch(`${SUPABASE_URL}/functions/v1/index-all-videos`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${SUPABASE_ANON_KEY}`, "Content-Type": "application/json" },
+            cache: "no-store",
+          }).catch(() => {});
+        }
+      } catch { /* best-effort */ }
+    })();
 
-      return dbRows
-        .filter((r) => r.scheduled_time)
-        .map((r): ScheduleItem => {
-          const tools = r.tags?.length ? r.tags : inferTools(r.title, r.description);
-          const isLive = liveSet.has(r.id) || r.stream_status === "live";
-          return {
-            id: r.id,
-            title: r.title,
-            description: r.description,
-            scheduledTime: r.scheduled_time!,
-            videoUrl: r.video_url,
-            tools: tools.length ? tools : ["Adobe Live"],
-            host: "Adobe Live",
-            thumbnail: r.thumbnail_url,
-            isLive,
-          };
-        })
-        .sort((a, b) => {
-          if (a.isLive && !b.isLive) return -1;
-          if (!a.isLive && b.isLive) return 1;
-          return new Date(a.scheduledTime).getTime() - new Date(b.scheduledTime).getTime();
-        });
-    } catch {
-      return [];
-    }
-  }, LIVE_CACHE_TTL_MS); // 1-hour TTL — matches live check cadence
+    return dbRows
+      .filter((r) => r.scheduled_time)
+      .map((r): ScheduleItem => {
+        const tools = r.tags?.length ? r.tags : inferTools(r.title, r.description);
+        const isLive = liveSet.has(r.id) || r.stream_status === "live";
+        return {
+          id: r.id,
+          title: r.title,
+          description: r.description,
+          scheduledTime: r.scheduled_time!,
+          videoUrl: r.video_url,
+          tools: tools.length ? tools : ["Adobe Live"],
+          host: "Adobe Live",
+          thumbnail: r.thumbnail_url,
+          isLive,
+        };
+      })
+      .sort((a, b) => {
+        if (a.isLive && !b.isLive) return -1;
+        if (!a.isLive && b.isLive) return 1;
+        return new Date(a.scheduledTime).getTime() - new Date(b.scheduledTime).getTime();
+      });
+  } catch {
+    return [];
+  }
 }
 
 // Read all past streams from the persistent past_streams table.

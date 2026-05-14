@@ -14,7 +14,8 @@ import SocialFooter from "@/components/adobe-live/SocialFooter";
 import StartHereCTA from "@/components/adobe-live/StartHereCTA";
 import type { Metadata } from "next";
 
-export const revalidate = 3600;
+/** Shorter ISR so schedule / live props refresh closer to real time (live UI also polls `/api/live`). */
+export const revalidate = 600;
 
 const SITE_URL = "https://adobelive.com";
 
