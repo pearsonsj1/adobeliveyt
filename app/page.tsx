@@ -78,6 +78,23 @@ export default async function AdobeLivePage() {
   const recentForHome = recentVideos.filter((v) => !isShortFormatVideo(v));
   const popularForHome = popularVideos.filter((v) => !isShortFormatVideo(v));
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+  // Fresh Supabase projects have empty tables until Edge Functions run with YOUTUBE_API_KEY set.
+  if (
+    supabaseUrl &&
+    supabaseAnon &&
+    schedule.length === 0 &&
+    recentForHome.length === 0 &&
+    popularForHome.length === 0
+  ) {
+    fetch(`${supabaseUrl}/functions/v1/index-all-videos`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${supabaseAnon}`, "Content-Type": "application/json" },
+      cache: "no-store",
+    }).catch(() => {});
+  }
+
   // Persist all surfaced videos to the index (fire-and-forget — never blocks render)
   const allVideos = [
     ...recentForHome,

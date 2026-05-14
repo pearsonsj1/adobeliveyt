@@ -30,6 +30,7 @@ interface VideosSectionProps {
 export default function VideosSection({ recent, popular }: VideosSectionProps) {
   const [tab, setTab] = useState<"recent" | "popular">("recent");
   const videos = tab === "recent" ? recent.slice(0, 6) : popular;
+  const hasAnySource = recent.length > 0 || popular.length > 0;
 
   return (
     <section id="videos" className="py-12 sm:py-16 px-4 sm:px-6">
@@ -41,44 +42,78 @@ export default function VideosSection({ recent, popular }: VideosSectionProps) {
         action={{ label: "All videos", href: "/videos" }}
       />
 
-      <div className="flex items-center gap-1 p-1 mb-6 rounded-xl bg-white/5 border border-white/10 w-fit">
-        {(["recent", "popular"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`relative px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
-              tab === t ? "text-white" : "text-white/40 hover:text-white/70"
-            }`}
-          >
-            {tab === t && (
-              <motion.div
-                layoutId="tab-bg"
-                className="absolute inset-0 rounded-lg bg-white/10 border border-white/15"
-                transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              />
-            )}
-            <span className="relative z-10 flex items-center gap-2">
-              {t === "recent" ? <BookOpen className="w-3.5 h-3.5" /> : <TrendingUp className="w-3.5 h-3.5" />}
-              {t === "recent" ? "Recent" : "Popular"}
-            </span>
-          </button>
-        ))}
-      </div>
+      {hasAnySource && (
+        <div className="flex items-center gap-1 p-1 mb-6 rounded-xl bg-white/5 border border-white/10 w-fit">
+          {(["recent", "popular"] as const).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`relative px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${
+                tab === t ? "text-white" : "text-white/40 hover:text-white/70"
+              }`}
+            >
+              {tab === t && (
+                <motion.div
+                  layoutId="tab-bg"
+                  className="absolute inset-0 rounded-lg bg-white/10 border border-white/15"
+                  transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                />
+              )}
+              <span className="relative z-10 flex items-center gap-2">
+                {t === "recent" ? <BookOpen className="w-3.5 h-3.5" /> : <TrendingUp className="w-3.5 h-3.5" />}
+                {t === "recent" ? "Recent" : "Popular"}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={tab}
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.25 }}
-          className={tab === "recent" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5" : "grid grid-cols-1 sm:grid-cols-2 gap-5"}
-        >
-          {tab === "recent"
-            ? videos.map((video, i) => <RecentCard key={video.id} video={video} index={i} />)
-            : videos.map((video, i) => <PopularCard key={video.id} video={video} index={i} />)}
-        </motion.div>
-      </AnimatePresence>
+      {!hasAnySource ? (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.07] px-5 py-4 text-sm">
+          <p className="font-semibold text-white mb-2">No videos loaded yet</p>
+          <p className="text-white/60 text-xs leading-relaxed mb-3">
+            Recent and popular lists come from the YouTube API via the{" "}
+            <code className="text-white/45">youtube-proxy</code> Edge Function (needs secret{" "}
+            <code className="text-white/45">YOUTUBE_API_KEY</code> in Supabase), or from the{" "}
+            <code className="text-white/45">video_index</code> table after{" "}
+            <code className="text-white/45">index-all-videos</code> has run. In Bolt: attach Supabase, set{" "}
+            <code className="text-white/45">NEXT_PUBLIC_SUPABASE_URL</code> and{" "}
+            <code className="text-white/45">NEXT_PUBLIC_SUPABASE_ANON_KEY</code> on the app, apply repo migrations,
+            deploy Edge Functions, add the YouTube key, then reload in a few minutes.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href="/videos"
+              className="inline-flex items-center gap-1.5 text-[#FA0F00] text-xs font-bold hover:underline"
+            >
+              Browse all videos
+            </Link>
+            <a
+              href="https://www.youtube.com/@AdobeLiveCommunity/videos"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-[#FA0F00] text-xs font-bold hover:underline"
+            >
+              Open on YouTube
+            </a>
+          </div>
+        </div>
+      ) : (
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={tab}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.25 }}
+            className={tab === "recent" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5" : "grid grid-cols-1 sm:grid-cols-2 gap-5"}
+          >
+            {tab === "recent"
+              ? videos.map((video, i) => <RecentCard key={video.id} video={video} index={i} />)
+              : videos.map((video, i) => <PopularCard key={video.id} video={video} index={i} />)}
+          </motion.div>
+        </AnimatePresence>
+      )}
     </section>
   );
 }
