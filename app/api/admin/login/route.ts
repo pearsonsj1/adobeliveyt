@@ -18,7 +18,10 @@ export async function POST(request: NextRequest) {
   const secret = process.env.ADMIN_SESSION_SECRET ?? "";
 
   if (!password || !secret) {
-    return NextResponse.json({ error: "Admin auth is not configured on the server." }, { status: 503 });
+    return NextResponse.json(
+      { error: "Sign-in is not configured. Set ADMIN_PASSWORD and ADMIN_SESSION_SECRET on the server." },
+      { status: 503 }
+    );
   }
 
   let body: { password?: string; next?: string };
@@ -30,7 +33,7 @@ export async function POST(request: NextRequest) {
 
   const submitted = typeof body.password === "string" ? body.password : "";
   if (!safeEqualString(submitted, password)) {
-    return NextResponse.json({ error: "Incorrect password." }, { status: 401 });
+    return NextResponse.json({ error: "The password you entered is incorrect." }, { status: 401 });
   }
 
   const token = await signAdminSession(secret, ADMIN_SESSION_TTL_MS);

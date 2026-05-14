@@ -59,22 +59,6 @@ interface PathNode {
   }[];
 }
 
-/** Section intro — consistent, professional tone (optional tool context). */
-function sectionIntro(tool: string | null): { kicker: string; title: string; body: string } {
-  if (tool) {
-    return {
-      kicker: "Find your content",
-      title: "What are you looking for?",
-      body: `Recommendations for ${tool} are available below this section. Answer one question here and we will suggest matching playlists, courses, and live programming.`,
-    };
-  }
-  return {
-    kicker: "Find your content",
-    title: "What are you looking for?",
-    body: "Answer a few questions and we will direct you to playlists, courses, or live sessions that align with your goal.",
-  };
-}
-
 const NODES: Record<string, PathNode> = {
   root: {
     id: "root",
@@ -202,45 +186,6 @@ const NODES: Record<string, PathNode> = {
         icon: Briefcase,
         color: "#FFD200",
         next: "profession_freelance",
-      },
-      {
-        label: "Marketing, advertising, or campaign creative",
-        icon: Sparkles,
-        color: "#FF6B00",
-        destinations: [
-          {
-            label: "Generative AI for Branding & Campaign Design",
-            description: "Use Adobe Firefly and Express for on-brand visuals, campaign assets, and rapid iteration.",
-            url: "/courses/izzy-poirier",
-            tag: "Firefly · 8 lessons",
-          },
-          {
-            label: "Adobe Express Playlist",
-            description: "Templates, social graphics, and quick layouts for marketing and communications teams.",
-            url: "/tools/express",
-            tag: "Playlist",
-            toolName: "Express",
-          },
-        ],
-      },
-      {
-        label: "Creative direction, leadership, or strategy",
-        icon: Star,
-        color: "#FFD200",
-        destinations: [
-          {
-            label: "Shows & series catalog",
-            description: "Recurring Adobe Live programming — interviews, news, and industry discussion.",
-            url: "/series",
-            tag: "Series",
-          },
-          {
-            label: "The File New Show",
-            description: "Weekly creative news, tool updates, and designer-focused conversation.",
-            url: "/series/file-new",
-            tag: "Weekly",
-          },
-        ],
       },
       {
         label: "3D artist or product designer",
@@ -1086,34 +1031,6 @@ const NODES: Record<string, PathNode> = {
           },
         ],
       },
-      {
-        label: "Motion graphics, titles, or visual effects",
-        icon: Layers,
-        color: "#E478FF",
-        destinations: [
-          {
-            label: "After Effects Playlist",
-            description: "Motion design, compositing, animation, and effects — the full After Effects library.",
-            url: "/tools/after-effects",
-            tag: "Playlist",
-            toolName: "After Effects",
-          },
-        ],
-      },
-      {
-        label: "Print layout, editorial, or long documents",
-        icon: BookOpen,
-        color: "#FF3366",
-        destinations: [
-          {
-            label: "InDesign Playlist",
-            description: "Layout, typography, print production, and interactive documents.",
-            url: "/tools/indesign",
-            tag: "Playlist",
-            toolName: "InDesign",
-          },
-        ],
-      },
     ],
   },
 
@@ -1174,25 +1091,6 @@ const NODES: Record<string, PathNode> = {
             description: "Core Photoshop skills for professional photo editing, retouching, and compositing.",
             url: "/courses/jesus-ramirez",
             tag: "Photoshop · 8 lessons",
-          },
-        ],
-      },
-      {
-        label: "I coordinate training for a team or organization",
-        icon: Users,
-        color: "#9999FF",
-        destinations: [
-          {
-            label: "All courses",
-            description: "Structured series you can assign, share, or adapt for group learning.",
-            url: "/courses",
-            tag: "Courses",
-          },
-          {
-            label: "Subscribe to the channel",
-            description: "Receive notifications when new educational live sessions are scheduled.",
-            url: "https://www.youtube.com/@AdobeLiveCommunity?sub_confirmation=1",
-            tag: "Subscribe",
           },
         ],
       },
@@ -1394,32 +1292,6 @@ const NODES: Record<string, PathNode> = {
           },
         ],
       },
-      {
-        label: "I want recurring shows and series",
-        icon: Library,
-        color: "#9999FF",
-        destinations: [
-          {
-            label: "Shows & series catalog",
-            description: "Browse every recurring series — schedules, descriptions, and episode counts.",
-            url: "/series",
-            tag: "Series",
-          },
-        ],
-      },
-      {
-        label: "I want to browse the full video library",
-        icon: Library,
-        color: "#00C2A8",
-        destinations: [
-          {
-            label: "Video library",
-            description: "Search and filter every indexed tutorial, replay, and short.",
-            url: "/videos",
-            tag: "Library",
-          },
-        ],
-      },
     ],
   },
 
@@ -1466,12 +1338,6 @@ const NODES: Record<string, PathNode> = {
           },
         ],
       },
-      {
-        label: "Browse tutorials by Adobe application",
-        icon: BookOpen,
-        color: "#FA0F00",
-        next: "tool",
-      },
     ],
   },
 
@@ -1497,19 +1363,6 @@ const NODES: Record<string, PathNode> = {
         icon: Layers,
         color: "#FA0F00",
         next: "course_area_advanced",
-      },
-      {
-        label: "I want to compare all courses first",
-        icon: Library,
-        color: "#00C2A8",
-        destinations: [
-          {
-            label: "All courses",
-            description: "Browse every structured, multi-part course on Adobe Live.",
-            url: "/courses",
-            tag: "Courses",
-          },
-        ],
       },
     ],
   },
@@ -1981,19 +1834,6 @@ const NODES: Record<string, PathNode> = {
           },
         ],
       },
-      {
-        label: "I want the full searchable video library",
-        icon: Library,
-        color: "#31A8FF",
-        destinations: [
-          {
-            label: "Video library",
-            description: "Filter by tool, series, or format to find a specific tutorial or replay.",
-            url: "/videos",
-            tag: "Library",
-          },
-        ],
-      },
     ],
   },
 
@@ -2061,19 +1901,6 @@ const NODES: Record<string, PathNode> = {
             description: "Show up during a live session and share your screen — community participation is part of what makes Adobe Live special.",
             url: "/schedule",
             tag: "Live",
-          },
-        ],
-      },
-      {
-        label: "I want written tutorials and guides",
-        icon: BookOpen,
-        color: "#FF9A00",
-        destinations: [
-          {
-            label: "Blog",
-            description: "Readable articles and guides derived from Adobe Live sessions.",
-            url: "/blog",
-            tag: "Blog",
           },
         ],
       },
@@ -2182,8 +2009,6 @@ export default function PathFinder({ initialTool }: PathFinderProps) {
   const node = NODES[currentNodeId];
   const relatedLinks = useMemo(() => destinations ? computeRelatedLinks(destinations) : [], [destinations]);
 
-  const intro = sectionIntro(activeTool);
-
   function handleOption(option: (typeof node.options)[0]) {
     const entry: HistoryEntry = {
       nodeId: currentNodeId,
@@ -2246,30 +2071,30 @@ export default function PathFinder({ initialTool }: PathFinderProps) {
   }
 
   return (
-    <section className="py-16 sm:py-24 px-4 sm:px-6">
+    <section className="py-20 sm:py-28 px-4 sm:px-6">
       <div className="max-w-4xl mx-auto">
         {/* Section label */}
         <motion.div
-          className="mb-10"
+          className="mb-12"
           initial={{ opacity: 0, y: 10 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.4 }}
         >
           <div className="flex items-center gap-2 mb-3">
-            <ArrowRight className="w-4 h-4 text-[#FA0F00]" />
+            <ArrowRight className="w-4 h-4 text-[#FA0F00]/90" />
             <span
-              className="text-xs font-bold uppercase tracking-[0.15em] bg-clip-text text-transparent"
-              style={{ backgroundImage: "linear-gradient(90deg, #FA0F00 0%, #FF6B00 50%, #FFD200 100%)" }}
+              className="text-[11px] font-semibold uppercase tracking-[0.16em] bg-clip-text text-transparent"
+              style={{ backgroundImage: "linear-gradient(90deg, #FA0F00 0%, #FF6B00 45%, #FFD200 100%)" }}
             >
-              {intro.kicker}
+              Find your content
             </span>
           </div>
-          <h2 className="text-white text-3xl sm:text-4xl font-black tracking-tight leading-tight">
-            {intro.title}
+          <h2 className="text-white text-2xl sm:text-3xl font-semibold tracking-tight leading-[1.2]">
+            What are you looking for?
           </h2>
-          <p className="text-white/50 text-base mt-3 leading-relaxed">
-            {intro.body}
+          <p className="text-white/42 text-[15px] mt-3 max-w-2xl leading-relaxed">
+            Answer a few questions and we&apos;ll send you straight to the right playlist or show.
           </p>
         </motion.div>
 
@@ -2295,46 +2120,47 @@ export default function PathFinder({ initialTool }: PathFinderProps) {
               transition={{ duration: 0.25 }}
             >
               {activeTool && currentNodeId === "root" && (
-                <div className="mb-4 rounded-xl border border-white/10 bg-gradient-to-r from-[#FA0F00]/12 via-white/[0.03] to-transparent px-4 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <p className="text-white/55 text-xs leading-relaxed sm:max-w-[min(100%,28rem)]">
-                    <span className="text-white font-semibold">Tip:</span> you opened this guide with{" "}
-                    <span className="text-white/80">{activeTool}</span> selected. Related videos appear below. You can also go straight to the organized playlist for that application.
+                <div className="mb-4 rounded-xl border border-white/[0.08] bg-gradient-to-r from-[#FA0F00]/10 via-white/[0.02] to-transparent px-4 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <p className="text-white/50 text-xs leading-relaxed sm:max-w-[min(100%,28rem)]">
+                    <span className="text-white/70 font-medium">Context:</span> this guide was opened with{" "}
+                    <span className="text-white/85">{activeTool}</span> selected. Related videos appear below. You may
+                    also open the dedicated application hub.
                   </p>
                   <Link
                     href={`/tools/${getToolSlugByName(activeTool)}`}
-                    className="inline-flex items-center justify-center gap-1.5 shrink-0 rounded-lg border border-white/15 bg-white/5 px-3.5 py-2 text-xs font-semibold text-white/90 hover:bg-white/10 hover:border-white/25 transition-colors"
+                    className="inline-flex items-center justify-center gap-1.5 shrink-0 rounded-lg border border-white/[0.12] bg-white/[0.04] px-3.5 py-2 text-xs font-semibold text-white/90 hover:bg-white/[0.08] hover:border-white/20 transition-colors"
                   >
                     {activeTool} hub
-                    <ArrowRight className="w-3.5 h-3.5" />
+                    <ArrowRight className="w-3.5 h-3.5 opacity-70" />
                   </Link>
                 </div>
               )}
 
               {/* Question card */}
-              <div className="rounded-2xl border border-white/10 bg-white/3 p-6 sm:p-8 mb-4">
-                <h3 className="text-white text-xl sm:text-2xl font-bold mb-1">{node.question}</h3>
+              <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6 sm:p-8 mb-4 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
+                <h3 className="text-white text-lg sm:text-xl font-semibold tracking-tight mb-1">{node.question}</h3>
                 {node.subtitle && (
-                  <p className="text-white/45 text-sm mb-6">{node.subtitle}</p>
+                  <p className="text-white/40 text-sm mb-7 leading-relaxed">{node.subtitle}</p>
                 )}
-                {!node.subtitle && <div className="mb-6" />}
+                {!node.subtitle && <div className="mb-7" />}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   {node.options.map((opt) => (
                     <button
                       key={opt.label}
                       onClick={() => handleOption(opt)}
-                      className="group flex items-center gap-3 p-4 rounded-xl border border-white/8 bg-white/3 hover:border-white/20 hover:bg-white/6 transition-all duration-200 text-left"
+                      className="group flex items-center gap-3 p-4 rounded-xl border border-white/[0.07] bg-white/[0.02] hover:border-white/[0.14] hover:bg-white/[0.05] transition-all duration-200 text-left"
                     >
                       <div
                         className="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200"
-                        style={{ background: `${opt.color}18`, border: `1px solid ${opt.color}30` }}
+                        style={{ background: `${opt.color}14`, border: `1px solid ${opt.color}28` }}
                       >
                         <opt.icon className="w-4.5 h-4.5" style={{ color: opt.color, width: 18, height: 18 }} />
                       </div>
-                      <span className="text-white/75 group-hover:text-white text-sm font-medium transition-colors duration-200 leading-snug">
+                      <span className="text-white/70 group-hover:text-white/95 text-sm font-medium transition-colors duration-200 leading-snug pr-1">
                         {opt.label}
                       </span>
-                      <ArrowRight className="w-4 h-4 text-white/20 group-hover:text-white/50 ml-auto flex-shrink-0 transition-all duration-200 group-hover:translate-x-0.5" />
+                      <ArrowRight className="w-4 h-4 text-white/15 group-hover:text-white/40 ml-auto flex-shrink-0 transition-all duration-200 group-hover:translate-x-0.5" />
                     </button>
                   ))}
                 </div>
@@ -2347,13 +2173,13 @@ export default function PathFinder({ initialTool }: PathFinderProps) {
                     className="flex items-center gap-1.5 text-white/40 hover:text-white/70 text-xs font-medium transition-colors duration-200"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
-                    Go back
+                    Previous step
                   </button>
                   <button
                     onClick={reset}
                     className="flex items-center gap-1.5 text-white/30 hover:text-white/60 text-xs font-medium transition-colors duration-200"
                   >
-                    Start over
+                    Start again
                   </button>
                 </div>
               )}
@@ -2370,7 +2196,7 @@ export default function PathFinder({ initialTool }: PathFinderProps) {
               <div className="rounded-2xl border border-[#FA0F00]/25 bg-[#FA0F00]/5 p-6 sm:p-8 mb-4">
                 <div className="flex items-center gap-2 mb-5">
                   <div className="w-2 h-2 rounded-full bg-[#FA0F00] animate-pulse" />
-                  <span className="text-[#FA0F00] text-xs font-bold uppercase tracking-widest">We found it</span>
+                  <span className="text-[#FA0F00] text-[11px] font-semibold uppercase tracking-[0.14em]">Suggested destinations</span>
                 </div>
 
                 <div className="flex flex-col gap-3">
@@ -2415,7 +2241,7 @@ export default function PathFinder({ initialTool }: PathFinderProps) {
               {/* More to explore */}
               {relatedLinks.length > 0 && (
                 <div className="mt-4 rounded-2xl border border-white/8 bg-white/[0.02] p-5 sm:p-6">
-                  <p className="text-white/35 text-[11px] font-bold uppercase tracking-widest mb-4">More to explore</p>
+                  <p className="text-white/35 text-[11px] font-semibold uppercase tracking-[0.12em] mb-4">Also worth a look</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {relatedLinks.map((link) => {
                       const isExternal = link.external || link.url.startsWith("http");
@@ -2456,13 +2282,13 @@ export default function PathFinder({ initialTool }: PathFinderProps) {
                   className="flex items-center gap-1.5 text-white/40 hover:text-white/70 text-xs font-medium transition-colors duration-200"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
-                  Go back
+                  Previous step
                 </button>
                 <button
                   onClick={reset}
                   className="flex items-center gap-1.5 text-white/30 hover:text-white/60 text-xs font-medium transition-colors duration-200"
                 >
-                  Start over
+                  Start again
                 </button>
               </div>
             </motion.div>
