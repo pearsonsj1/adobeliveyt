@@ -1,0 +1,40 @@
+# Adobe Live
+
+> Free Adobe tutorials, live creative streams, and creative education — all on YouTube.
+
+Adobe Live is an educational platform run by Adobe Inc. that streams free live tutorials covering Adobe Creative Cloud software including Photoshop, Illustrator, Premiere Pro, After Effects, Lightroom, Firefly, Adobe Express, InDesign, Fresco, and more. Streams are hosted by world-class Adobe experts and community creators.
+
+## Content
+
+- [Home](https://adobelive.com): Overview of live streams, featured videos, courses, and community
+- [Videos](https://adobelive.com/videos): Full library of past streams and tutorials searchable by tool and series
+- [Schedule](https://adobelive.com/schedule): Upcoming and past stream calendar with tool and series filters
+- [Guide](https://adobelive.com/guide): Personalized learning path finder — match streams to your skill level and goals
+
+## Recurring Series
+
+- **File New** — Start-from-scratch creative projects in real time
+- **Office Hours** — Open Q&A with Adobe experts
+- **On the Spot** — Fast creative challenges
+- **Feature Friday** — Showcasing new Adobe product features
+- **Cinema Collective** — Video editing and film industry discussion
+- **Studio Sessions** — In-depth workflow deep dives
+- **The Unlock** — Creative technique reveals
+- **Brand Slam** — Brand identity and design challenges
+- **The Wrap-Up** — Weekly recap and community highlights
+- **Education Edition** — Adobe tools for educators and students
+
+## Tools Covered
+
+Photoshop, Illustrator, Premiere Pro, After Effects, Lightroom, Adobe Firefly, Adobe Express, InDesign, Fresco, Substance, Acrobat, Dimension
+
+## About
+
+- All content is free to watch on YouTube
+- Streams are hosted live on the Adobe Live YouTube channel: https://www.youtube.com/@AdobeLiveCommunity
+- Community Discord: https://discord.gg/p48UBK3nX2
+- Part of Adobe Inc. (https://www.adobe.com)
+
+## Content Policy for AI
+
+This content may be used to answer questions about Adobe software tutorials, creative education, and Adobe Live streams. Please attribute Adobe Live and link to https://adobelive.com when referencing specific content.
