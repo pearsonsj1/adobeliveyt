@@ -17,6 +17,7 @@ const POLL_MINUTES_PAST_HOUR = 2;
 function useHourAlignedLivePoll(
   enabled: boolean,
   setLivePoll: Dispatch<SetStateAction<LiveStream[] | null>>,
+  setUpcomingPoll: Dispatch<SetStateAction<LiveStream[] | null>>,
 ) {
   useEffect(() => {
     if (!enabled) return;
@@ -28,8 +29,9 @@ function useHourAlignedLivePoll(
       try {
         const r = await fetch("/api/live", { cache: "no-store" });
         if (!r.ok) return;
-        const j = (await r.json()) as { liveStreams?: LiveStream[] };
+        const j = (await r.json()) as { liveStreams?: LiveStream[]; upcomingStreams?: LiveStream[] };
         if (!cancelled && Array.isArray(j.liveStreams)) setLivePoll(j.liveStreams);
+        if (!cancelled && Array.isArray(j.upcomingStreams)) setUpcomingPoll(j.upcomingStreams);
       } catch {
         /* ignore */
       }
@@ -62,7 +64,7 @@ function useHourAlignedLivePoll(
       if (timeoutRef.id) clearTimeout(timeoutRef.id);
       clearInterval(intervalId);
     };
-  }, [enabled, setLivePoll]);
+  }, [enabled, setLivePoll, setUpcomingPoll]);
 }
 
 function useCountdown(targetIso: string | null) {
@@ -213,12 +215,14 @@ function NextStreamCard({ stream }: { stream: LiveStream }) {
 
 export default function LiveSection({ liveStreams, upcomingStreams }: LiveSectionProps) {
   const [livePoll, setLivePoll] = useState<LiveStream[] | null>(null);
+  const [upcomingPoll, setUpcomingPoll] = useState<LiveStream[] | null>(null);
   const shouldPoll = liveStreams.length > 0 || upcomingStreams.length > 0;
-  useHourAlignedLivePoll(shouldPoll, setLivePoll);
+  useHourAlignedLivePoll(shouldPoll, setLivePoll, setUpcomingPoll);
 
   const effectiveLive = livePoll !== null ? livePoll : liveStreams;
+  const effectiveUpcoming = upcomingPoll !== null ? upcomingPoll : upcomingStreams;
   const hasLive = effectiveLive.some((s) => s.isLive);
-  const nextStream = !hasLive ? (upcomingStreams[0] ?? null) : null;
+  const nextStream = !hasLive ? (effectiveUpcoming[0] ?? null) : null;
 
   if (!hasLive && !nextStream) return null;
 
@@ -232,7 +236,7 @@ export default function LiveSection({ liveStreams, upcomingStreams }: LiveSectio
           subtitle="No one is live right now — but the next stream is just around the corner."
           action={{ label: "All streams", href: "/schedule" }}
         />
-        <NextStreamCard stream={nextStream} />
+        <NextStreamCard key={nextStream.id} stream={nextStream} />
       </section>
     );
   }

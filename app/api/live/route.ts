@@ -1,17 +1,18 @@
 import { NextResponse } from "next/server";
-import { refreshLiveNowCache } from "@/lib/youtube";
+import type { LiveStream } from "@/lib/youtube";
+import { refreshLiveNowCache, getUpcomingStreams } from "@/lib/youtube";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Hour-aligned client polling hits this route (~1×/hr) to refresh live status
- * without waiting for the static page ISR window.
+ * Client polling refreshes live status and the upcoming list without waiting for ISR.
  */
 export async function GET() {
-  try {
-    const liveStreams = await refreshLiveNowCache();
-    return NextResponse.json({ liveStreams });
-  } catch {
-    return NextResponse.json({ liveStreams: [] as const });
-  }
+  const [liveRes, upRes] = await Promise.allSettled([
+    refreshLiveNowCache(),
+    getUpcomingStreams(),
+  ]);
+  const liveStreams: LiveStream[] = liveRes.status === "fulfilled" ? liveRes.value : [];
+  const upcomingStreams: LiveStream[] = upRes.status === "fulfilled" ? upRes.value : [];
+  return NextResponse.json({ liveStreams, upcomingStreams });
 }
