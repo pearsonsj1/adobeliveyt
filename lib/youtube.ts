@@ -891,32 +891,74 @@ const FALLBACK_TOOL_PLAYLISTS: ToolPlaylist[] = TOOL_PLAYLIST_CONFIG.map((c) => 
   thumbnail: "",
 }));
 
+/** When YouTube playlist metadata is missing, approximate visible count from `video_index`. */
+async function countToolPlaylistVideosInIndex(playlistId: string, toolTag: string): Promise<number> {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return 0;
+  try {
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const base = () =>
+      supabase.from("video_index").select("id", { count: "exact", head: true }).eq("is_short", false);
+
+    const byPlaylist = await base().contains("playlist_ids", [playlistId]);
+    const playlistCount = byPlaylist.count ?? 0;
+    if (playlistCount > 0) return playlistCount;
+
+    const cfg = TOOL_PLAYLIST_CONFIG.find((c) => c.playlistId === playlistId);
+    const slug = cfg?.slug ?? "";
+    let maxTag = 0;
+    for (const t of indexTagFiltersForToolSlug(slug, toolTag)) {
+      const byTag = await base().contains("tags", [t]);
+      maxTag = Math.max(maxTag, byTag.count ?? 0);
+    }
+    return maxTag;
+  } catch {
+    return 0;
+  }
+}
+
 export async function getToolPlaylists(): Promise<ToolPlaylist[]> {
-  return withCache("tool_playlists", async () => {
+  return withCache("tool_playlists:v2", async () => {
     try {
       const ids = TOOL_PLAYLIST_IDS.map((p) => p.id).join(",");
       const data = await proxyFetch("playlists_by_ids", { ids }) as YTPlaylistResponse | null;
-      if (!data?.items?.length) return FALLBACK_TOOL_PLAYLISTS;
+      let baseList: ToolPlaylist[] = FALLBACK_TOOL_PLAYLISTS;
 
-      const byId = new Map<string, YTPlaylistItem>();
-      for (const item of data.items) byId.set(item.id, item);
+      if (data?.items?.length) {
+        const byId = new Map<string, YTPlaylistItem>();
+        for (const item of data.items) byId.set(item.id, item);
 
-      return TOOL_PLAYLIST_IDS.map(({ tool, id, slug }) => {
-        const item = byId.get(id);
-        if (!item) {
-          return FALLBACK_TOOL_PLAYLISTS.find((m) => m.tool === tool) ?? FALLBACK_TOOL_PLAYLISTS[0];
-        }
-        return {
-          tool,
-          slug,
-          playlistId: id,
-          playlistUrl: youtubePlaylistUrl(id),
-          videoCount: item.contentDetails.itemCount,
-          thumbnail: bestThumb(item.snippet.thumbnails),
-        };
-      });
+        baseList = TOOL_PLAYLIST_IDS.map(({ tool, id, slug }) => {
+          const item = byId.get(id);
+          if (!item) {
+            return FALLBACK_TOOL_PLAYLISTS.find((m) => m.tool === tool) ?? FALLBACK_TOOL_PLAYLISTS[0];
+          }
+          return {
+            tool,
+            slug,
+            playlistId: id,
+            playlistUrl: youtubePlaylistUrl(id),
+            videoCount: item.contentDetails.itemCount,
+            thumbnail: bestThumb(item.snippet.thumbnails),
+          };
+        });
+      }
+
+      return await Promise.all(
+        baseList.map(async (p) => {
+          if (p.videoCount > 0) return p;
+          const fromIndex = await countToolPlaylistVideosInIndex(p.playlistId, p.tool);
+          return fromIndex > 0 ? { ...p, videoCount: fromIndex } : p;
+        }),
+      );
     } catch {
-      return FALLBACK_TOOL_PLAYLISTS;
+      return await Promise.all(
+        FALLBACK_TOOL_PLAYLISTS.map(async (p) => {
+          const fromIndex = await countToolPlaylistVideosInIndex(p.playlistId, p.tool);
+          return fromIndex > 0 ? { ...p, videoCount: fromIndex } : p;
+        }),
+      );
     }
   });
 }
