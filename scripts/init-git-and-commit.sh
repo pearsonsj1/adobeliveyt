@@ -27,5 +27,5 @@ git commit -m "Initial commit: Adobe Live Next.js site" || {
 echo ""
 echo "Done. Next:"
 echo "  1. Create an empty repo on GitHub"
-echo "  2. git remote add origin https://github.com/YOUR_USER/REPO.git"
+echo "  2. git remote add origin https://github.com/pearsonsj1/adobeliveyt.git"
 echo "  3. git push -u origin main   (or: master)"

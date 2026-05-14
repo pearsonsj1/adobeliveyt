@@ -1,4 +1,4 @@
-# Adobe Live Community (adobeliveyoutube1)
+# Adobe Live Community (`adobeliveyt`)
 
 Next.js site for **Adobe Live** on YouTube: schedules, tools, series, courses, video pages, and Supabase-backed indexing.
 
@@ -13,7 +13,7 @@ Next.js site for **Adobe Live** on YouTube: schedules, tools, series, courses, v
 ## Quick start
 
 ```bash
-cd adobeliveyoutube1
+cd adobeliveyt   # or your local project folder name
 cp .env.example .env.local
 ```
 
@@ -65,12 +65,12 @@ If this folder is not a git repository yet (e.g. you started from a ZIP):
 Then on GitHub: **New repository** → create empty repo → add remote and push:
 
 ```bash
-git remote add origin https://github.com/YOUR_USER/adobeliveyoutube1.git
+git remote add origin https://github.com/pearsonsj1/adobeliveyt.git
 git branch -M main
 git push -u origin main
 ```
 
-Or with GitHub CLI: `gh repo create adobeliveyoutube1 --private --source=. --push` (after `gh auth login`).
+Or with GitHub CLI: `gh repo create pearsonsj1/adobeliveyt --private --source=. --push` (after `gh auth login`).
 
 ## License
 
