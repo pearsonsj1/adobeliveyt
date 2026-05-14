@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, ExternalLink, Play, Clock, Eye, Calendar, Layers, User, GraduationCap, ChevronRight, Loader as Loader2 } from "lucide-react";
 import Link from "next/link";
 import { usePreview } from "./PreviewContext";
-import { formatViewCount, formatRelativeDate, getPlaylistVideos, getPlaylistInfo, PlaylistVideoItem } from "@/lib/youtube";
+import { formatViewCount, formatRelativeDate, type PlaylistVideoItem } from "@/lib/youtube";
 
 // Map tool name to internal /tools/[slug] path
 const TOOL_SLUG: Record<string, string> = {
@@ -200,15 +200,34 @@ function PlaylistModal() {
     setLoading(true);
     setActiveVideo(null);
     setPlayerActive(false);
-    const [vids, info] = await Promise.all([
-      getPlaylistVideos(item.playlistId),
-      getPlaylistInfo(item.playlistId),
-    ]);
-    setVideos(vids);
-    setPlaylistTitle(info.title);
-    setDescription(item.description || info.description || "");
-    if (vids.length) setActiveVideo(vids[0]);
-    setLoading(false);
+    try {
+      const res = await fetch(
+        `/api/playlist-preview?playlistId=${encodeURIComponent(item.playlistId)}`,
+        { cache: "no-store" },
+      );
+      if (!res.ok) {
+        setVideos([]);
+        setPlaylistTitle("");
+        setDescription(item.description || "");
+        return;
+      }
+      const data = (await res.json()) as {
+        videos: PlaylistVideoItem[];
+        title: string;
+        description: string;
+      };
+      const vids = data.videos ?? [];
+      setVideos(vids);
+      setPlaylistTitle(data.title ?? "");
+      setDescription(item.description || data.description || "");
+      if (vids.length) setActiveVideo(vids[0]);
+    } catch {
+      setVideos([]);
+      setPlaylistTitle("");
+      setDescription(item.description || "");
+    } finally {
+      setLoading(false);
+    }
   }, [item?.playlistId, item?.description]);
 
   useEffect(() => {

@@ -103,7 +103,7 @@ Deno.serve(async (req: Request) => {
           });
         }
         // Fetch up to 20 playlist items (videoIds + titles + thumbnails)
-        ytUrl = `${BASE}/playlistItems?part=snippet,contentDetails&playlistId=${playlistId}&maxResults=20&key=${apiKey}`;
+        ytUrl = `${BASE}/playlistItems?part=snippet,contentDetails&playlistId=${playlistId}&maxResults=50&key=${apiKey}`;
         break;
       }
       case "playlist_video_stats": {

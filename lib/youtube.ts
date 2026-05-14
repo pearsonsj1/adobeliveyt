@@ -1340,21 +1340,28 @@ export async function getPlaylistVideos(playlistId: string): Promise<PlaylistVid
         for (const v of statsData.items) statsMap.set(v.id, v);
       }
 
-      return data.items
-        .filter((item) => statsMap.get(item.contentDetails.videoId)?.status?.privacyStatus === "public")
-        .map((item): PlaylistVideoItem => {
-          const vid = statsMap.get(item.contentDetails.videoId)!;
-          return {
-            id: item.contentDetails.videoId,
-            title: decodeHtmlEntities(item.snippet.title),
-            thumbnail: bestThumb(item.snippet.thumbnails),
-            duration: vid.contentDetails?.duration ? parseDuration(vid.contentDetails.duration) : "",
-            publishedAt: item.snippet.publishedAt,
-            viewCount: parseInt(vid.statistics?.viewCount ?? "0"),
-            position: item.snippet.position,
-            description: vid.snippet?.description ?? "",
-          };
+      // If the stats call fails or returns partial data, still list playlist items (snippet is enough).
+      // Requiring a stats row + "public" produced an empty sidebar when stats were missing (e.g. second proxy call failed).
+      const out: PlaylistVideoItem[] = [];
+      for (const item of data.items) {
+        const id = item.contentDetails.videoId;
+        const vid = statsMap.get(id);
+        if (vid?.status?.privacyStatus === "private") continue;
+
+        out.push({
+          id,
+          title: decodeHtmlEntities(item.snippet.title),
+          thumbnail: bestThumb(item.snippet.thumbnails),
+          duration: vid?.contentDetails?.duration ? parseDuration(vid.contentDetails.duration) : "",
+          publishedAt: item.snippet.publishedAt,
+          viewCount: vid ? parseInt(vid.statistics?.viewCount ?? "0") : 0,
+          position: item.snippet.position,
+          description: vid?.snippet?.description ? decodeHtmlEntities(vid.snippet.description) : "",
         });
+      }
+
+      if (out.length === 0) return getPlaylistVideosFromIndex(playlistId);
+      return out;
     } catch {
       return getPlaylistVideosFromIndex(playlistId);
     }
