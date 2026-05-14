@@ -70,6 +70,12 @@ git branch -M main
 git push -u origin main
 ```
 
+Or run the helper (same result as the three lines above):
+
+```bash
+./scripts/connect-and-push.sh
+```
+
 Or with GitHub CLI: `gh repo create pearsonsj1/adobeliveyt --private --source=. --push` (after `gh auth login`).
 
 ## License
