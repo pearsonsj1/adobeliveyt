@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type Dispatch, type SetStateAction } from "react";
 import { motion } from "framer-motion";
 import { Radio, Eye, ExternalLink, User, Play, Clock } from "lucide-react";
 import { LiveStream, formatViewCount } from "@/lib/youtube";
@@ -9,6 +9,64 @@ import SectionHeader from "./SectionHeader";
 interface LiveSectionProps {
   liveStreams: LiveStream[];
   upcomingStreams: LiveStream[];
+}
+
+/** Poll ~2 minutes after each wall-clock hour so YouTube has time to mark the stream live. */
+const POLL_MINUTES_PAST_HOUR = 2;
+/** Right after the hour, do one immediate check (stream may have just flipped live). */
+const EARLY_WINDOW_MS = 4 * 60 * 1000;
+
+function msUntilNextPollTwoPast(): number {
+  const now = new Date();
+  const target = new Date(now);
+  target.setMinutes(POLL_MINUTES_PAST_HOUR, 0, 0);
+  if (target <= now) target.setHours(target.getHours() + 1);
+  return target.getTime() - now.getTime();
+}
+
+function useHourAlignedLivePoll(
+  enabled: boolean,
+  setLivePoll: Dispatch<SetStateAction<LiveStream[] | null>>,
+) {
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    const timeoutRef = { id: null as ReturnType<typeof setTimeout> | null };
+
+    async function pollOnce() {
+      if (cancelled) return;
+      try {
+        const r = await fetch("/api/live", { cache: "no-store" });
+        if (!r.ok) return;
+        const j = (await r.json()) as { liveStreams?: LiveStream[] };
+        if (!cancelled && Array.isArray(j.liveStreams)) setLivePoll(j.liveStreams);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    function scheduleNext() {
+      if (timeoutRef.id) clearTimeout(timeoutRef.id);
+      timeoutRef.id = setTimeout(async () => {
+        await pollOne();
+      }, msUntilNextPollTwoPast());
+    }
+
+    async function pollOne() {
+      await pollOnce();
+      if (!cancelled) scheduleNext();
+    }
+
+    const now = new Date();
+    const msPastHour = now.getMinutes() * 60_000 + now.getSeconds() * 1000 + now.getMilliseconds();
+    if (msPastHour < EARLY_WINDOW_MS) void pollOne();
+    else scheduleNext();
+
+    return () => {
+      cancelled = true;
+      if (timeoutRef.id) clearTimeout(timeoutRef.id);
+    };
+  }, [enabled, setLivePoll]);
 }
 
 function useCountdown(targetIso: string | null) {
@@ -158,7 +216,12 @@ function NextStreamCard({ stream }: { stream: LiveStream }) {
 }
 
 export default function LiveSection({ liveStreams, upcomingStreams }: LiveSectionProps) {
-  const hasLive = liveStreams.some((s) => s.isLive);
+  const [livePoll, setLivePoll] = useState<LiveStream[] | null>(null);
+  const shouldPoll = liveStreams.length > 0 || upcomingStreams.length > 0;
+  useHourAlignedLivePoll(shouldPoll, setLivePoll);
+
+  const effectiveLive = livePoll !== null ? livePoll : liveStreams;
+  const hasLive = effectiveLive.some((s) => s.isLive);
   const nextStream = !hasLive ? (upcomingStreams[0] ?? null) : null;
 
   if (!hasLive && !nextStream) return null;
@@ -178,7 +241,7 @@ export default function LiveSection({ liveStreams, upcomingStreams }: LiveSectio
     );
   }
 
-  const liveStream = liveStreams[0]!;
+  const liveStream = effectiveLive[0]!;
   const sharpThumb = liveStream.thumbnail
     ? liveStream.thumbnail.replace(/hqdefault|mqdefault|sddefault/, "maxresdefault")
     : liveStream.thumbnail;

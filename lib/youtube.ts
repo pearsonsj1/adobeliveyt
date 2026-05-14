@@ -569,39 +569,61 @@ async function fetchLiveDetails(ids: string[]): Promise<Map<string, YTVideoItem>
 }
 
 // ---------------------------------------------------------------------------
-// Public API
+// Public API — live streams (shared fetch + Supabase youtube_cache key live_now)
 // ---------------------------------------------------------------------------
 
+/** YouTube search + live details; no cache read/write — used by getLiveNow / refreshLiveNowCache. */
+async function fetchLiveStreamsFromApi(): Promise<LiveStream[]> {
+  try {
+    const search = await proxyFetch("live") as YTSearchResponse | null;
+    if (!search?.items?.length) return [];
+
+    const ids = search.items.map((i) => i.id.videoId);
+    const details = await fetchLiveDetails(ids);
+
+    return search.items.map((item): LiveStream => {
+      const vid = details.get(item.id.videoId);
+      const viewers = vid?.liveStreamingDetails?.concurrentViewers
+        ? parseInt(vid.liveStreamingDetails.concurrentViewers)
+        : null;
+      return {
+        id: item.id.videoId,
+        title: decodeHtmlEntities(item.snippet.title),
+        thumbnail: bestThumb(item.snippet.thumbnails),
+        scheduledTime: null,
+        viewerCount: viewers,
+        isLive: true,
+        videoUrl: videoUrl(item.id.videoId),
+        host: item.snippet.channelTitle,
+        description: decodeHtmlEntities(item.snippet.description),
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
+async function writeYoutubeCacheData(key: string, data: unknown): Promise<void> {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return;
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/youtube_cache`, {
+      method: "POST",
+      headers: { ...dbHeaders(), "Prefer": "resolution=merge-duplicates" },
+      body: JSON.stringify({ key, data, cached_at: new Date().toISOString(), stale_ok: true }),
+      cache: "no-store",
+    });
+  } catch { /* best-effort */ }
+}
+
+/** Force a live check and refresh `live_now` in Supabase (for hour-aligned client polling). */
+export async function refreshLiveNowCache(): Promise<LiveStream[]> {
+  const fresh = await fetchLiveStreamsFromApi();
+  await writeYoutubeCacheData("live_now", fresh);
+  return fresh;
+}
+
 export async function getLiveNow(): Promise<LiveStream[]> {
-  return withCache("live_now", async () => {
-    try {
-      const search = await proxyFetch("live") as YTSearchResponse | null;
-      if (!search?.items?.length) return [];
-
-      const ids = search.items.map((i) => i.id.videoId);
-      const details = await fetchLiveDetails(ids);
-
-      return search.items.map((item): LiveStream => {
-        const vid = details.get(item.id.videoId);
-        const viewers = vid?.liveStreamingDetails?.concurrentViewers
-          ? parseInt(vid.liveStreamingDetails.concurrentViewers)
-          : null;
-        return {
-          id: item.id.videoId,
-          title: decodeHtmlEntities(item.snippet.title),
-          thumbnail: bestThumb(item.snippet.thumbnails),
-          scheduledTime: null,
-          viewerCount: viewers,
-          isLive: true,
-          videoUrl: videoUrl(item.id.videoId),
-          host: item.snippet.channelTitle,
-          description: decodeHtmlEntities(item.snippet.description),
-        };
-      });
-    } catch {
-      return [];
-    }
-  }, LIVE_CACHE_TTL_MS, true);
+  return withCache("live_now", fetchLiveStreamsFromApi, LIVE_CACHE_TTL_MS, true);
 }
 
 async function getUpcomingStreamsFromIndex(): Promise<LiveStream[]> {
@@ -911,29 +933,7 @@ export async function getSchedule(): Promise<ScheduleItem[]> {
 
       // 2. Check which streams are actually live right now — reuses the same cache key as
       // getLiveNow() so both functions share a single API call per hour.
-      const liveNowFull = await withCache("live_now", async () => {
-        try {
-          const search = await proxyFetch("live") as YTSearchResponse | null;
-          if (!search?.items?.length) return [];
-          const ids = search.items.map((i) => i.id.videoId);
-          const details = await fetchLiveDetails(ids);
-          return search.items.map((item): LiveStream => {
-            const vid = details.get(item.id.videoId);
-            return {
-              id: item.id.videoId,
-              title: decodeHtmlEntities(item.snippet.title),
-              thumbnail: bestThumb(item.snippet.thumbnails),
-              scheduledTime: null,
-              viewerCount: vid?.liveStreamingDetails?.concurrentViewers
-                ? parseInt(vid.liveStreamingDetails.concurrentViewers) : null,
-              isLive: true,
-              videoUrl: videoUrl(item.id.videoId),
-              host: item.snippet.channelTitle,
-              description: decodeHtmlEntities(item.snippet.description),
-            };
-          });
-        } catch { return []; }
-      }, LIVE_CACHE_TTL_MS, true);
+      const liveNowFull = await withCache("live_now", fetchLiveStreamsFromApi, LIVE_CACHE_TTL_MS, true);
       const liveSet = new Set<string>(liveNowFull.map((s) => s.id));
 
       // 3. Re-index only when upcoming data is stale (>4 h) to avoid redundant API quota use.

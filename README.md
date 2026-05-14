@@ -46,6 +46,19 @@ Open [http://localhost:3000](http://localhost:3000).
 
 \*The app degrades gracefully in some places without them, but **YouTube proxy, DB index, analytics, and most pages need Supabase** to behave correctly.
 
+## Bolt (Supabase only through Bolt)
+
+If your database is attached via Bolt and you **do not** use [supabase.com](https://supabase.com) directly, put sensitive values in **Bolt**, not in the repo:
+
+1. Open your Bolt project.
+2. Click the **database** icon (top center).
+3. Open **Secrets** in the left menu.
+4. **Create secret** → name: **`YOUTUBE_API_KEY`** → value: your YouTube Data API key (from Google Cloud).
+
+That name must match `supabase/functions/youtube-proxy/index.ts`, which reads `Deno.env.get("YOUTUBE_API_KEY")`. Bolt injects these secrets when your **server / edge functions** run so the key never ships to the browser.
+
+See Bolt’s docs: [Database: Secrets settings](https://support.bolt.new/cloud/database/secrets).
+
 ## Deploying (Netlify / Vercel)
 
 1. Connect this repo to your host.

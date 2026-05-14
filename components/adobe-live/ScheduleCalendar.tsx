@@ -337,6 +337,7 @@ export default function ScheduleCalendar({ schedule, pastStreams }: ScheduleCale
   const selectedLabel = selectedDate?.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
   const isSelectedToday = selectedDate ? isSameDay(selectedDate, today) : false;
   const hasFilters = activeFilters.size > 0;
+  const hasAnyStreams = allStreams.length > 0;
 
   return (
     <div>
@@ -369,6 +370,29 @@ export default function ScheduleCalendar({ schedule, pastStreams }: ScheduleCale
           </a>
         </div>
       </div>
+
+      {!hasAnyStreams && (
+        <div className="mb-8 rounded-xl border border-amber-500/30 bg-amber-500/[0.07] px-5 py-4 text-sm">
+          <p className="font-semibold text-white mb-2">No streams in the calendar yet</p>
+          <p className="text-white/60 text-xs leading-relaxed mb-3">
+            The grid fills from your Supabase tables: upcoming and live rows in{" "}
+            <code className="text-white/45">video_index</code>, and replays in{" "}
+            <code className="text-white/45">past_streams</code>. Those are filled by your Edge Functions
+            (for example <code className="text-white/45">index-all-videos</code> and{" "}
+            <code className="text-white/45">index-past-streams</code>) after the YouTube API key is set in Bolt
+            secrets. Reload this page in a few minutes, or check YouTube directly below.
+          </p>
+          <a
+            href="https://www.youtube.com/@AdobeLiveCommunity"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-[#FA0F00] text-xs font-bold hover:underline"
+          >
+            Open @AdobeLiveCommunity on YouTube
+            <ExternalLink className="w-3 h-3" />
+          </a>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_380px] gap-8">
         {/* Calendar grid */}

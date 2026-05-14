@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { CalendarDays, ChevronDown } from "lucide-react";
 import { ScheduleItem } from "@/lib/youtube";
 import ScheduleRow from "./ScheduleRow";
@@ -100,7 +101,35 @@ export default function ScheduleSection({ schedule }: ScheduleSectionProps) {
   // Only show days that have at least one stream
   const activeDays = days.filter((d) => (grouped.get(d.toISOString()) ?? []).length > 0);
 
-  if (activeDays.length === 0) return null;
+  if (activeDays.length === 0) {
+    return (
+      <section id="schedule" className="py-12 sm:py-16 px-4 sm:px-6">
+        <SectionHeader
+          icon={CalendarDays}
+          label="Schedule"
+          title="This Week on Adobe Live"
+          subtitle="Scheduled streams this week. All times shown in your local timezone."
+          action={{ label: "View full calendar", href: "/schedule" }}
+        />
+        <p className="text-white/45 text-sm max-w-2xl leading-relaxed -mt-2 mb-2">
+          No upcoming streams are indexed for this week in the database yet. Open the{" "}
+          <Link href="/schedule" className="text-[#FA0F00] hover:underline font-semibold">
+            full stream calendar
+          </Link>{" "}
+          (it may still be filling after Supabase indexing), or see what&apos;s live on{" "}
+          <a
+            href="https://www.youtube.com/@AdobeLiveCommunity"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[#FA0F00] hover:underline font-semibold"
+          >
+            YouTube
+          </a>
+          .
+        </p>
+      </section>
+    );
+  }
 
   return (
     <section id="schedule" className="py-12 sm:py-16 px-4 sm:px-6">

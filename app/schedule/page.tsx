@@ -33,6 +33,18 @@ export default async function SchedulePage() {
     getPastStreams(),
   ]);
 
+  // If the calendar has nothing to show, kick a background full-channel index once per load
+  // so `video_index` / `past_streams` can populate (Bolt + Supabase need YOUTUBE_API_KEY on the function).
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+  if (schedule.length === 0 && pastStreams.length === 0 && supabaseUrl && anonKey) {
+    fetch(`${supabaseUrl}/functions/v1/index-all-videos`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${anonKey}`, "Content-Type": "application/json" },
+      cache: "no-store",
+    }).catch(() => {});
+  }
+
   // Build Event JSON-LD for each upcoming stream so crawlers can index event data
   const upcomingEvents = schedule
     .filter((s) => !s.isLive && s.scheduledTime)
