@@ -3,9 +3,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Header from "@/components/adobe-live/Header";
 import SocialFooter from "@/components/adobe-live/SocialFooter";
-import { getRecurringSeries, getPlaylistVideos } from "@/lib/youtube";
+import { getRecurringSeries, getPlaylistVideos, SERIES_PLAYLIST_CACHE_TTL_MS } from "@/lib/youtube";
 
-export const revalidate = 3600;
+/** Regenerate series episode pages at most once per week (ISR). Playlist API reads also use a 7-day youtube_cache TTL. */
+export const revalidate = 604800;
 
 const SITE_URL = "https://adobelive.com";
 
@@ -41,7 +42,7 @@ export default async function SeriesDetailPage({ params }: { params: { slug: str
   const show = series.find((s) => s.id === params.slug);
   if (!show) notFound();
 
-  const videos = await getPlaylistVideos(show.playlistId);
+  const videos = await getPlaylistVideos(show.playlistId, SERIES_PLAYLIST_CACHE_TTL_MS);
 
   const jsonLd = {
     "@context": "https://schema.org",

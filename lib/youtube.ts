@@ -93,6 +93,9 @@ const LIVE_NOW_CACHE_TTL_MS = 2 * 60 * 1000;
 const CACHE_TTL_MS = 48 * 60 * 60 * 1000;
 const VIDEO_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
+/** Per-playlist `youtube_cache` TTL for `/series/[slug]` — refresh playlist payload at most about once per week. */
+export const SERIES_PLAYLIST_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
 // YouTube quota resets at midnight Pacific. We mark quota exhaustion in the DB
 // and clear it after 24 hours so the next day's quota gets used automatically.
 const QUOTA_KEY = "quota_state";
@@ -1359,7 +1362,10 @@ async function getPlaylistVideosFromIndex(playlistId: string): Promise<PlaylistV
   }
 }
 
-export async function getPlaylistVideos(playlistId: string): Promise<PlaylistVideoItem[]> {
+export async function getPlaylistVideos(
+  playlistId: string,
+  cacheTtlMs: number = CACHE_TTL_MS,
+): Promise<PlaylistVideoItem[]> {
   return withCache(`playlist_videos:${playlistId}`, async () => {
     try {
       const data = await proxyFetch("playlist_videos", { playlistId }) as YTPlaylistItemResponse | null;
@@ -1400,7 +1406,7 @@ export async function getPlaylistVideos(playlistId: string): Promise<PlaylistVid
     } catch {
       return getPlaylistVideosFromIndex(playlistId);
     }
-  });
+  }, cacheTtlMs);
 }
 
 export async function getPlaylistDescription(playlistId: string): Promise<string> {
@@ -1412,7 +1418,10 @@ export async function getPlaylistDescription(playlistId: string): Promise<string
   }
 }
 
-export async function getPlaylistInfo(playlistId: string): Promise<{ title: string; description: string }> {
+export async function getPlaylistInfo(
+  playlistId: string,
+  cacheTtlMs: number = CACHE_TTL_MS,
+): Promise<{ title: string; description: string }> {
   return withCache(`playlist_info:${playlistId}`, async () => {
     try {
       const data = await proxyFetch("playlist_info", { playlistId }) as YTPlaylistInfoResponse | null;
@@ -1424,7 +1433,7 @@ export async function getPlaylistInfo(playlistId: string): Promise<{ title: stri
     } catch {
       return { title: "", description: "" };
     }
-  });
+  }, cacheTtlMs);
 }
 
 // ---------------------------------------------------------------------------
