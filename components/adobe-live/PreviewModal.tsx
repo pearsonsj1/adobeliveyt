@@ -6,7 +6,14 @@ import { X, ExternalLink, Play, Clock, Eye, Calendar, Layers, User, GraduationCa
 import Link from "next/link";
 import { usePreview, type PreviewItem } from "./PreviewContext";
 import { formatViewCount, formatRelativeDate, type PlaylistVideoItem } from "@/lib/youtube";
-import { getToolSlugByName } from "@/lib/tool-playlists";
+import { TOOL_PLAYLIST_CONFIG } from "@/lib/tool-playlists";
+
+function toolSlugForToolHref(item: Pick<PreviewItem, "tool" | "toolSlug">): string {
+  if (item.toolSlug) return item.toolSlug;
+  if (!item.tool) return "";
+  const c = TOOL_PLAYLIST_CONFIG.find((x) => x.tool === item.tool);
+  return c?.slug ?? item.tool.toLowerCase().replace(/\s+/g, "-");
+}
 
 function playlistDetailHref(item: PreviewItem): string {
   if (item.instructor) {
@@ -14,7 +21,7 @@ function playlistDetailHref(item: PreviewItem): string {
     return "/courses";
   }
   if (item.tool) {
-    return `/tools/${item.toolSlug ?? getToolSlugByName(item.tool)}`;
+    return `/tools/${toolSlugForToolHref(item)}`;
   }
   if (item.seriesSlug) return `/series/${item.seriesSlug}`;
   return "/series";
