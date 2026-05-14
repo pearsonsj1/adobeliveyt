@@ -10,10 +10,20 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
 async function fetchAnalytics() {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return {
+      contentClicks7d: [],
+      contentClicks30d: [],
+      searchQueries7d: [],
+      ytCtaClicks7d: [],
+      timeSpent7d: [],
+    };
+  }
+
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();

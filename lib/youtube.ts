@@ -236,6 +236,7 @@ export async function getPopularVideosFromIndex(): Promise<VideoItem[]> {
 }
 
 async function proxyFetch(endpoint: string, extra?: Record<string, string>): Promise<unknown> {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
   const params = new URLSearchParams({ endpoint, ...extra });
   const res = await fetch(`${PROXY}?${params}`, {
     cache: "no-store",

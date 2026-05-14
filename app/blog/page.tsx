@@ -7,8 +7,8 @@ import SocialFooter from "@/components/adobe-live/SocialFooter";
 export const revalidate = 3600;
 
 const SITE_URL = "https://adobelive.com";
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
 export const metadata: Metadata = {
   title: "Blog — Adobe Live Tutorials & Creative Guides",
@@ -51,34 +51,40 @@ interface PageProps {
 const PAGE_SIZE = 24;
 
 export default async function BlogPage({ searchParams }: PageProps) {
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const activeTag = searchParams.tag ?? "All";
   const page = Math.max(1, parseInt(searchParams.page ?? "1", 10));
   const offset = (page - 1) * PAGE_SIZE;
 
-  let query = supabase
-    .from("video_index")
-    .select("id, title, description, thumbnail_url, published_at, tags, duration", { count: "exact" })
-    .eq("is_live_stream", false)
-    .eq("is_short", false)
-    .or("stream_status.is.null,stream_status.neq.upcoming")
-    .order("published_at", { ascending: false })
-    .range(offset, offset + PAGE_SIZE - 1);
+  let posts: Post[] = [];
+  let count = 0;
 
-  if (activeTag !== "All") {
-    query = query.contains("tags", [activeTag]);
+  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    let query = supabase
+      .from("video_index")
+      .select("id, title, description, thumbnail_url, published_at, tags, duration", { count: "exact" })
+      .eq("is_live_stream", false)
+      .eq("is_short", false)
+      .or("stream_status.is.null,stream_status.neq.upcoming")
+      .order("published_at", { ascending: false })
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (activeTag !== "All") {
+      query = query.contains("tags", [activeTag]);
+    }
+
+    const result = await query;
+    count = result.count ?? 0;
+    posts = (result.data ?? []).map((v) => ({
+      id: v.id,
+      title: v.title ?? "",
+      description: v.description ?? "",
+      thumbnail_url: v.thumbnail_url ?? "",
+      published_at: v.published_at ?? null,
+      tags: v.tags ?? [],
+      duration: v.duration ?? "",
+    }));
   }
-
-  const { data, count } = await query;
-  const posts: Post[] = (data ?? []).map((v) => ({
-    id: v.id,
-    title: v.title ?? "",
-    description: v.description ?? "",
-    thumbnail_url: v.thumbnail_url ?? "",
-    published_at: v.published_at ?? null,
-    tags: v.tags ?? [],
-    duration: v.duration ?? "",
-  }));
 
   const totalPages = Math.ceil((count ?? 0) / PAGE_SIZE);
 

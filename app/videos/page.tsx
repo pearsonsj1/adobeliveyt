@@ -51,53 +51,53 @@ interface PageProps {
 export default async function VideosPage({ searchParams }: PageProps) {
   const rawTool = searchParams.tool ?? "";
   const initialTool = VALID_TOOLS.find((t) => t.toLowerCase() === rawTool.toLowerCase()) ?? rawTool;
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
 
-  // Fire-and-forget: trigger a full channel index when the oldest-updated video
-  // is >6 hours stale. Using min(last_seen_at) ensures every video gets refreshed
-  // periodically — not just the ones touched by recent-video fetches.
-  (async () => {
-    try {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-      const staleRes = await fetch(
-        `${supabaseUrl}/rest/v1/video_index?select=last_seen_at&order=last_seen_at.asc&limit=1`,
-        { headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` }, cache: "no-store" },
-      );
-      if (staleRes.ok) {
-        const rows = await staleRes.json() as { last_seen_at: string }[];
-        const oldestSeen = rows[0]?.last_seen_at;
-        const ageMs = oldestSeen ? Date.now() - new Date(oldestSeen).getTime() : Infinity;
-        if (ageMs > 6 * 60 * 60 * 1000) {
-          fetch(`${supabaseUrl}/functions/v1/index-all-videos`, {
-            method: "POST",
-            headers: { Authorization: `Bearer ${anonKey}`, "Content-Type": "application/json" },
-            cache: "no-store",
-          }).catch(() => {});
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+  const hasSupabase = Boolean(supabaseUrl && anonKey);
+
+  if (hasSupabase) {
+    (async () => {
+      try {
+        const staleRes = await fetch(
+          `${supabaseUrl}/rest/v1/video_index?select=last_seen_at&order=last_seen_at.asc&limit=1`,
+          { headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` }, cache: "no-store" },
+        );
+        if (staleRes.ok) {
+          const rows = await staleRes.json() as { last_seen_at: string }[];
+          const oldestSeen = rows[0]?.last_seen_at;
+          const ageMs = oldestSeen ? Date.now() - new Date(oldestSeen).getTime() : Infinity;
+          if (ageMs > 6 * 60 * 60 * 1000) {
+            fetch(`${supabaseUrl}/functions/v1/index-all-videos`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${anonKey}`, "Content-Type": "application/json" },
+              cache: "no-store",
+            }).catch(() => {});
+          }
         }
-      }
-    } catch { /* best-effort */ }
-  })();
+      } catch { /* best-effort */ }
+    })();
+  }
 
-  // Read all indexed videos from the DB
-  const { data } = await supabase
-    .from("video_index")
-    .select("id, title, description, thumbnail_url, video_url, duration, tags, published_at")
-    .order("published_at", { ascending: false });
+  let videos: LibraryVideo[] = [];
+  if (hasSupabase) {
+    const supabase = createClient(supabaseUrl, anonKey);
+    const { data } = await supabase
+      .from("video_index")
+      .select("id, title, description, thumbnail_url, video_url, duration, tags, published_at")
+      .order("published_at", { ascending: false });
 
-  const videos: LibraryVideo[] = (data ?? []).map((v) => ({
-    id: v.id,
-    title: v.title,
-    description: v.description ?? "",
-    thumbnail_url: v.thumbnail_url,
-    video_url: v.video_url,
-    duration: v.duration ?? "",
-    tags: v.tags ?? [],
-    published_at: v.published_at ?? null,
-  }));
+    videos = (data ?? []).map((v) => ({
+      id: v.id,
+      title: v.title,
+      description: v.description ?? "",
+      thumbnail_url: v.thumbnail_url,
+      video_url: v.video_url,
+      duration: v.duration ?? "",
+      tags: v.tags ?? [],
+      published_at: v.published_at ?? null,
+    }));
+  }
 
   const jsonLd = {
     "@context": "https://schema.org",
