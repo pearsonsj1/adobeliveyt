@@ -1,0 +1,43 @@
+# Applies SQL in supabase/migrations/ to your linked Supabase project (e.g. playlist_ids upsert fix).
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   SUPABASE_ACCESS_TOKEN — https://supabase.com/dashboard/account/tokens
+#   SUPABASE_PROJECT_ID   — Project Settings → General → Reference ID (same as project ref in the URL)
+#   SUPABASE_DB_PASSWORD    — Project Settings → Database → Database password (not the anon key)
+#
+# If the Supabase GitHub app already added a similar workflow, keep one to avoid double-deploys.
+
+name: Supabase migrations
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "supabase/migrations/**"
+      - ".github/workflows/supabase-migrate.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: supabase-migrate-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Link project (non-interactive)
+        run: supabase link --project-ref "$SUPABASE_PROJECT_ID" --password "$SUPABASE_DB_PASSWORD"
+
+      - name: Push pending migrations
+        run: supabase db push
