@@ -75,7 +75,7 @@ export function inferRelatedCoursesForVideo(
       const tl = t.toLowerCase();
       if (tagSet.has(tl)) score += 3;
     }
-    for (const vt of tagSet) {
+    for (const vt of Array.from(tagSet)) {
       if (vt.length < 3) continue;
       if (tool.includes(vt) || vt.includes(tool)) score += 2;
       for (const ct of c.tags) {
