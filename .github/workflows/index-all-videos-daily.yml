@@ -1,0 +1,34 @@
+# Runs a full Supabase `index-all-videos` once per day (~one YouTube quota spike)
+# instead of relying on random page traffic. Configure repo secrets (see README).
+name: Daily index-all-videos
+
+on:
+  schedule:
+    # 07:10 UTC — adjust to your timezone / off-peak YouTube quota window
+    - cron: "10 7 * * *"
+  workflow_dispatch:
+
+jobs:
+  index:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: POST index-all-videos
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
+            echo "::warning::Set repository secrets SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to enable daily indexing."
+            exit 0
+          fi
+          echo "Triggering index-all-videos…"
+          curl -sS -f -X POST \
+            "${SUPABASE_URL}/functions/v1/index-all-videos" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{}' \
+            --max-time 1200
+          echo "Done."

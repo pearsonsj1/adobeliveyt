@@ -4,7 +4,7 @@ import Link from "next/link";
 import Header from "@/components/adobe-live/Header";
 import SocialFooter from "@/components/adobe-live/SocialFooter";
 
-export const revalidate = 3600;
+export const revalidate = 86400;
 
 const SITE_URL = "https://adobelive.com";
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";

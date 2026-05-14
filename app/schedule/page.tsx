@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   },
 };
 
-export const revalidate = 3600 * 4; // 4 hours
+export const revalidate = 86400;
 
 export default async function SchedulePage() {
   const [schedule, pastStreams] = await Promise.all([

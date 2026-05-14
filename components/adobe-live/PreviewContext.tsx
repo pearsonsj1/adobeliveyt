@@ -17,6 +17,8 @@ export interface PreviewItem {
   tool?: string;
   tools?: string[];
   host?: string | null;
+  /** True only when YouTube currently lists this video as live (passed from schedule UI). */
+  isLive?: boolean;
   scheduledTime?: string;
   instructor?: string;
   // playlist-specific: if set, modal will fetch and show playlist videos

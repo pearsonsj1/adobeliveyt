@@ -5,8 +5,8 @@ import Header from "@/components/adobe-live/Header";
 import SocialFooter from "@/components/adobe-live/SocialFooter";
 import { getRecurringSeries, getPlaylistVideos, SERIES_PLAYLIST_CACHE_TTL_MS } from "@/lib/youtube";
 
-/** Regenerate series episode pages at most once per week (ISR). Playlist API reads also use a 7-day youtube_cache TTL. */
-export const revalidate = 604800;
+/** Daily ISR; playlist reads use the same ~24h `youtube_cache` TTL as other catalog data. */
+export const revalidate = 86400;
 
 const SITE_URL = "https://adobelive.com";
 

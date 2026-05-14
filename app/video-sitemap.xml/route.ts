@@ -1,37 +1,16 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+import { fetchAllVideoIndexForVideoSitemap } from "@/lib/video-index-pagination";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 const SITE_URL = "https://adobelive.com";
 
-interface VideoIndexRow {
-  id: string;
-  title: string;
-  description: string;
-  thumbnail_url: string;
-  video_url: string;
-  published_at: string | null;
-  duration: string;
-  tags: string[] | null;
-  last_seen_at: string;
-}
-
-async function getAllIndexedVideos(): Promise<VideoIndexRow[]> {
+async function getAllIndexedVideos() {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return [];
   try {
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/video_index?select=id,title,description,thumbnail_url,video_url,published_at,duration,tags,last_seen_at&order=published_at.desc`,
-      {
-        headers: {
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-          apikey: SUPABASE_ANON_KEY,
-          "Content-Type": "application/json",
-        },
-        cache: "no-store",
-      },
-    );
-    if (!res.ok) return [];
-    return (await res.json()) as VideoIndexRow[];
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    return await fetchAllVideoIndexForVideoSitemap(supabase);
   } catch {
     return [];
   }

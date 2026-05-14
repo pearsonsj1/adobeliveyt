@@ -1,4 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
+import { INDEX_ALL_VIDEOS_STALE_MS } from "@/lib/indexing-config";
+import { fetchAllVideoIndexRows } from "@/lib/video-index-pagination";
 
 export interface LiveStream {
   id: string;
@@ -1019,7 +1021,7 @@ export async function getSchedule(): Promise<ScheduleItem[]> {
         const staleRows = staleRes.ok ? await staleRes.json() as { last_seen_at: string }[] : [];
         const lastSeen = staleRows[0]?.last_seen_at;
         const ageMs = lastSeen ? Date.now() - new Date(lastSeen).getTime() : Infinity;
-        if (ageMs > 24 * 60 * 60 * 1000) {
+        if (ageMs > INDEX_ALL_VIDEOS_STALE_MS) {
           fetch(`${SUPABASE_URL}/functions/v1/index-all-videos`, {
             method: "POST",
             headers: { Authorization: `Bearer ${SUPABASE_ANON_KEY}`, "Content-Type": "application/json" },
@@ -1335,6 +1337,16 @@ function mapVideoIndexRowsToPlaylistItems(
   }));
 }
 
+/** Newest first for playlist / course rails and preview modal. */
+function sortPlaylistItemsNewestFirst(items: PlaylistVideoItem[]): PlaylistVideoItem[] {
+  const sorted = [...items].sort((a, b) => {
+    const ta = a.publishedAt ? new Date(a.publishedAt).getTime() : 0;
+    const tb = b.publishedAt ? new Date(b.publishedAt).getTime() : 0;
+    return tb - ta;
+  });
+  return sorted.map((item, i) => ({ ...item, position: i }));
+}
+
 /** Distinctive fragment for ILIKE when `playlist_ids` was never backfilled for a series. */
 function seriesTitleSearchHint(full: string): string | null {
   let s = full.replace(/^Adobe Live:\s*/i, "").replace(/^The\s+/i, "");
@@ -1382,44 +1394,38 @@ async function getPlaylistVideosFromIndex(playlistId: string): Promise<PlaylistV
     const selectCols =
       "id,title,thumbnail_url,video_url,published_at,duration,tags,description";
 
-    const base = () =>
+    const baseOrdered = () =>
       supabase
         .from("video_index")
         .select(selectCols)
         .eq("is_short", false)
         .or("stream_status.is.null,stream_status.neq.upcoming")
-        .order("published_at", { ascending: true })
-        .limit(200);
+        .order("published_at", { ascending: false });
 
     // 1) Preferred: rows explicitly tagged with this playlist id (from indexing).
-    const byPlaylist = await base().contains("playlist_ids", [playlistId]);
-    if (!byPlaylist.error && byPlaylist.data?.length) {
-      return mapVideoIndexRowsToPlaylistItems(byPlaylist.data);
+    const playlistRows = await fetchAllVideoIndexRows((rangeFrom, rangeTo) =>
+      baseOrdered().contains("playlist_ids", [playlistId]).range(rangeFrom, rangeTo),
+    );
+    if (playlistRows.length) {
+      return mapVideoIndexRowsToPlaylistItems(playlistRows);
     }
 
     // 2) Tool playlist cards: same tag membership as /tools/[slug] (often populated when playlist_ids is not).
     const toolName = TOOL_PLAYLIST_IDS.find((p) => p.id === playlistId)?.tool;
     if (toolName) {
-      const byTag = await base().contains("tags", [toolName]);
-      if (!byTag.error && byTag.data?.length) {
-        return mapVideoIndexRowsToPlaylistItems(byTag.data);
+      const tagRows = await fetchAllVideoIndexRows((rangeFrom, rangeTo) =>
+        baseOrdered().contains("tags", [toolName]).range(rangeFrom, rangeTo),
+      );
+      if (tagRows.length) {
+        return mapVideoIndexRowsToPlaylistItems(tagRows);
       }
     }
 
-    // 3) ALOD mini-courses: primary tool tag (broad — best-effort when playlist_ids is empty).
-    const course = COURSE_PLAYLISTS.find((c) => c.playlistId === playlistId);
-    if (course) {
-      const byCourseTool = await base().contains("tags", [course.tool]);
-      if (!byCourseTool.error && byCourseTool.data?.length) {
-        return mapVideoIndexRowsToPlaylistItems(byCourseTool.data);
-      }
-      const alt = course.tags.find((t) => t !== course.tool);
-      if (alt) {
-        const byAlt = await base().contains("tags", [alt]);
-        if (!byAlt.error && byAlt.data?.length) {
-          return mapVideoIndexRowsToPlaylistItems(byAlt.data);
-        }
-      }
+    // 3) ALOD mini-course playlists: never infer lessons from `tags` — that matches every video
+    //    with the same tool (e.g. all "Photoshop" in the index) instead of the real playlist (~8).
+    //    Use `playlist_ids` (step 1) or the YouTube `playlistItems` path in `getPlaylistVideos`.
+    if (COURSE_PLAYLISTS.some((c) => c.playlistId === playlistId)) {
+      return [];
     }
 
     // 4) Recurring series: title fragment (last resort when playlist_ids never merged).
@@ -1427,9 +1433,11 @@ async function getPlaylistVideosFromIndex(playlistId: string): Promise<PlaylistV
     if (series) {
       const hint = seriesTitleSearchHint(series.title);
       if (hint) {
-        const byTitle = await base().ilike("title", `%${hint}%`);
-        if (!byTitle.error && byTitle.data?.length) {
-          return mapVideoIndexRowsToPlaylistItems(byTitle.data);
+        const titleRows = await fetchAllVideoIndexRows((rangeFrom, rangeTo) =>
+          baseOrdered().ilike("title", `%${hint}%`).range(rangeFrom, rangeTo),
+        );
+        if (titleRows.length) {
+          return mapVideoIndexRowsToPlaylistItems(titleRows);
         }
       }
     }
@@ -1444,8 +1452,8 @@ export async function getPlaylistVideos(
   playlistId: string,
   cacheTtlMs: number = CACHE_TTL_MS,
 ): Promise<PlaylistVideoItem[]> {
-  // v5: bump after DB backfill (`backfill-playlist-membership`) so cached [] / stale lists refresh.
-  return withCache(`playlist_videos:v5:${playlistId}`, async () => {
+  // v7: course DB fallback no longer uses broad tool tags (wrong lesson list).
+  return withCache(`playlist_videos:v7:${playlistId}`, async () => {
     try {
       const data = await proxyFetch("playlist_videos", { playlistId }) as YTPlaylistItemResponse | null;
       if (!data?.items?.length) {
@@ -1481,7 +1489,7 @@ export async function getPlaylistVideos(
       }
 
       if (out.length === 0) return getPlaylistVideosFromIndex(playlistId);
-      return out;
+      return sortPlaylistItemsNewestFirst(out);
     } catch {
       return getPlaylistVideosFromIndex(playlistId);
     }

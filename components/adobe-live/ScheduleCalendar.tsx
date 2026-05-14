@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, CalendarDays, Clock, User, ExternalLink, Youtube, X, Play } from "lucide-react";
 import { ScheduleItem, formatScheduledTime } from "@/lib/youtube";
 import { usePreview } from "./PreviewContext";
+import { useLiveStreamIdsPoll } from "./useLiveStreamIdsPoll";
 
 type TagColor = { bg: string; text: string; bar: string; dot: string };
 
@@ -74,11 +75,21 @@ function streamMatchesFilter(stream: ScheduleItem, activeFilters: Set<string>): 
 
 // ─── Stream card ──────────────────────────────────────────────────────────────
 
-function StreamCard({ item, forcePast }: { item: ScheduleItem; forcePast?: boolean }) {
+function StreamCard({
+  item,
+  forcePast,
+  liveIds,
+}: {
+  item: ScheduleItem;
+  forcePast?: boolean;
+  liveIds: Set<string> | null;
+}) {
   const { open } = usePreview();
   const date = new Date(item.scheduledTime);
   const timeStr = date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
-  const isPast = forcePast ?? (date < new Date() && !item.isLive);
+  const effectiveIsLive = liveIds !== null ? liveIds.has(item.id) : item.isLive;
+  const hasStarted = date.getTime() <= Date.now();
+  const isPast = forcePast ?? (!effectiveIsLive && hasStarted);
   const tags = item.tools.filter(t => t !== "Adobe Live");
   const accent = toolColors(item.tools);
 
@@ -89,26 +100,27 @@ function StreamCard({ item, forcePast }: { item: ScheduleItem; forcePast?: boole
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
       className={`group flex gap-4 p-4 rounded-xl border transition-all duration-200 cursor-pointer ${
-        item.isLive
+        effectiveIsLive
           ? "border-[#FA0F00]/40 bg-[#FA0F00]/5 hover:bg-[#FA0F00]/8 hover:border-[#FA0F00]/60"
           : "border-white/8 bg-black/20 hover:border-white/20 hover:bg-white/4"
       }`}
       onClick={() => open({
         title: item.title, thumbnail: item.thumbnail, description: item.description,
         videoUrl: item.videoUrl, tools: item.tools, host: item.host, scheduledTime: item.scheduledTime,
+        isLive: effectiveIsLive,
       })}
     >
       {item.thumbnail && (
         <div className="relative flex-shrink-0 w-[120px] sm:w-[150px] aspect-video rounded-lg overflow-hidden bg-white/5">
           <img src={item.thumbnail} alt="" loading="lazy" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
           <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors duration-200" />
-          {item.isLive && (
+          {effectiveIsLive && (
             <span className="absolute top-2 left-2 flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#FA0F00] text-white text-[10px] font-bold uppercase">
               <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
               Live
             </span>
           )}
-          {tags.length > 0 && !item.isLive && (
+          {tags.length > 0 && !effectiveIsLive && (
             <div className={`absolute bottom-0 left-0 right-0 h-1 ${accent.bar} opacity-80`} />
           )}
         </div>
@@ -145,7 +157,7 @@ function StreamCard({ item, forcePast }: { item: ScheduleItem; forcePast?: boole
               <User className="w-3 h-3" />{item.host}
             </span>
           )}
-          {!item.isLive && !isPast && (
+          {!effectiveIsLive && !isPast && (
             <span className="text-white/30 text-xs">{formatScheduledTime(item.scheduledTime)}</span>
           )}
         </div>
@@ -172,16 +184,18 @@ interface DayCellProps {
   isPast: boolean;
   isCurrentMonth: boolean;
   onClick: () => void;
+  liveIds: Set<string> | null;
 }
 
-function CalendarDayCell({ date, streams, isToday, isSelected, isPast, isCurrentMonth, onClick }: DayCellProps) {
+function CalendarDayCell({ date, streams, isToday, isSelected, isPast, isCurrentMonth, onClick, liveIds }: DayCellProps) {
   if (!date) return <div className="aspect-square sm:aspect-[5/4]" />;
 
   const hasStreams = streams.length > 0;
-  const hasLive = streams.some(s => s.isLive);
+  const isStreamLive = (s: ScheduleItem) => (liveIds !== null ? liveIds.has(s.id) : s.isLive);
+  const hasLive = streams.some(isStreamLive);
 
   const toolBars = streams.slice(0, 3).map(s => {
-    if (s.isLive) return "#FA0F00";
+    if (isStreamLive(s)) return "#FA0F00";
     return toolColors(s.tools).dot;
   });
 
@@ -270,6 +284,8 @@ interface ScheduleCalendarProps {
 }
 
 export default function ScheduleCalendar({ schedule, pastStreams }: ScheduleCalendarProps) {
+  const liveIds = useLiveStreamIdsPoll();
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -438,6 +454,7 @@ export default function ScheduleCalendar({ schedule, pastStreams }: ScheduleCale
                   key={i} date={date} streams={streams}
                   isToday={isToday} isSelected={isSelected}
                   isPast={isPast} isCurrentMonth={isCurrentMonth}
+                  liveIds={liveIds}
                   onClick={() => date && setSelectedDate(date)}
                 />
               );
@@ -531,7 +548,7 @@ export default function ScheduleCalendar({ schedule, pastStreams }: ScheduleCale
                     </span>
                     Today
                   </span>
-                  {selectedStreams.some(s => s.isLive) && (
+                  {selectedStreams.some((s) => (liveIds !== null ? liveIds.has(s.id) : s.isLive)) && (
                     <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#FA0F00] text-white text-[10px] font-bold uppercase tracking-wider">
                       <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                       Live
@@ -558,7 +575,7 @@ export default function ScheduleCalendar({ schedule, pastStreams }: ScheduleCale
                 className="flex flex-col gap-3"
               >
                 {selectedStreams.map(item => (
-                  <StreamCard key={item.id} item={item} forcePast={pastIds.has(item.id)} />
+                  <StreamCard key={item.id} item={item} forcePast={pastIds.has(item.id)} liveIds={liveIds} />
                 ))}
               </motion.div>
             ) : (

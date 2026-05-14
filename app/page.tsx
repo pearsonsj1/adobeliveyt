@@ -14,8 +14,8 @@ import SocialFooter from "@/components/adobe-live/SocialFooter";
 import StartHereCTA from "@/components/adobe-live/StartHereCTA";
 import type { Metadata } from "next";
 
-/** Shorter ISR so schedule / live props refresh closer to real time (live UI also polls `/api/live`). */
-export const revalidate = 600;
+/** Daily ISR for catalog content; live/upcoming stay fresh via `LiveSection` polling `/api/live`. */
+export const revalidate = 86400;
 
 const SITE_URL = "https://adobelive.com";
 
@@ -173,19 +173,12 @@ export default async function AdobeLivePage() {
         )}
 
         {(() => {
-          // When no live stream, the next upcoming stream is shown in the countdown card — exclude it from the schedule
-          const hasLive = liveStreams.some((s) => s.isLive);
-          const nextUpcomingId = !hasLive && upcomingStreams[0] ? upcomingStreams[0].id : null;
-          const scheduleFiltered = nextUpcomingId
-            ? schedule.filter((s) => s.id !== nextUpcomingId)
-            : schedule;
-          // If that was the only row, still show the schedule block (dedupe would hide the whole section otherwise).
-          const scheduleForSection =
-            scheduleFiltered.length > 0 ? scheduleFiltered : schedule;
+          // Keep the full week list here (including the “next” session). `LiveSection` still surfaces the next
+          // stream with a countdown; hiding that row from the schedule removed the next day’s row from this block.
           return (
             <>
               <div className="max-w-7xl mx-auto">
-                <ScheduleSection schedule={scheduleForSection} />
+                <ScheduleSection schedule={schedule} />
               </div>
               <div className="h-px bg-gradient-to-r from-transparent via-white/8 to-transparent" />
             </>

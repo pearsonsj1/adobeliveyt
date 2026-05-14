@@ -4,7 +4,7 @@ import Header from "@/components/adobe-live/Header";
 import SocialFooter from "@/components/adobe-live/SocialFooter";
 import { getRecurringSeries } from "@/lib/youtube";
 
-export const revalidate = 604800;
+export const revalidate = 86400;
 
 const SITE_URL = "https://adobelive.com";
 

@@ -42,7 +42,7 @@ async function getTrendingContent(): Promise<TrendRow[]> {
           apikey: SUPABASE_ANON,
           Authorization: `Bearer ${SUPABASE_ANON}`,
         },
-        next: { revalidate: 1800 },
+        next: { revalidate: 86400 },
       }
     );
     if (!res.ok) return [];
@@ -76,7 +76,7 @@ async function getTrendingTags(): Promise<TagTrend[]> {
           apikey: SUPABASE_ANON,
           Authorization: `Bearer ${SUPABASE_ANON}`,
         },
-        next: { revalidate: 1800 },
+        next: { revalidate: 86400 },
       }
     );
     if (!res.ok) return [];
@@ -125,7 +125,7 @@ export default async function TrendingSection() {
         icon={TrendingUp}
         label="Trending Now"
         title="What People Are Watching"
-        subtitle="The most-clicked content on this site over the last 7 days — updated every 30 minutes."
+        subtitle="The most-clicked content on this site over the last 7 days — updated about once per day."
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

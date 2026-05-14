@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, ExternalLink, Play, Clock, Eye, Calendar, Layers, User, GraduationCap, ChevronRight, Loader as Loader2 } from "lucide-react";
+import { X, ExternalLink, Play, Clock, Eye, Calendar, Layers, User, GraduationCap, ChevronRight, Loader as Loader2, Radio } from "lucide-react";
 import Link from "next/link";
 import { usePreview } from "./PreviewContext";
 import { formatViewCount, formatRelativeDate, type PlaylistVideoItem } from "@/lib/youtube";
@@ -79,6 +79,14 @@ function VideoModal() {
   const videoId = extractVideoId(item.videoUrl);
   const isPastStream = !!item.scheduledTime && new Date(item.scheduledTime) <= new Date();
   const canEmbed = !!videoId && (!item.scheduledTime || isPastStream);
+  const isFutureScheduled = !!(item.scheduledTime && new Date(item.scheduledTime) > new Date());
+  const ctaLabel = item.isLive
+    ? "Watch Now on YouTube"
+    : isFutureScheduled
+      ? "Set Reminder on YouTube"
+      : item.scheduledTime
+        ? "Replay Stream on YouTube"
+        : "Watch on YouTube";
 
   return (
     <motion.div
@@ -103,6 +111,12 @@ function VideoModal() {
           <>
             <img src={item.thumbnail} alt={item.title} className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#111] via-black/20 to-transparent" />
+            {item.isLive && (
+              <div className="absolute top-3 left-3 z-[5] flex items-center gap-1.5 px-2 py-1 rounded-md bg-[#FA0F00] text-white text-[10px] font-bold uppercase tracking-wider shadow-lg">
+                <Radio className="w-3 h-3 shrink-0 animate-pulse" />
+                Live
+              </div>
+            )}
             {item.duration && (
               <div className="absolute bottom-3 right-3 px-2 py-0.5 rounded bg-black/80 text-white text-xs font-mono">
                 {item.duration}
@@ -175,7 +189,7 @@ function VideoModal() {
           className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-[#FA0F00] hover:bg-[#d40d00] text-white font-semibold text-sm transition-colors duration-200"
         >
           <Play className="w-4 h-4 fill-white" />
-          {item.scheduledTime && new Date(item.scheduledTime) > new Date() ? "Set Reminder on YouTube" : item.scheduledTime ? "Replay Stream on YouTube" : "Watch on YouTube"}
+          {ctaLabel}
           <ExternalLink className="w-3.5 h-3.5 opacity-70" />
         </a>
       </div>

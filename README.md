@@ -68,6 +68,17 @@ See Bolt’s docs: [Database: Secrets settings](https://support.bolt.new/cloud/d
 
 `netlify.toml` is included for Netlify.
 
+## Scheduled full index (recommended)
+
+The Edge Function **`index-all-videos`** walks the channel uploads playlist and refreshes **`video_index`** (library, blog, schedule data, etc.). To keep **YouTube API usage predictable** (about **one full index per day**) while still picking up new uploads within ~24 hours:
+
+1. In GitHub: **Settings → Secrets and variables → Actions** → add:
+   - **`SUPABASE_URL`** — same value as `NEXT_PUBLIC_SUPABASE_URL` (e.g. `https://xxxx.supabase.co`).
+   - **`SUPABASE_SERVICE_ROLE_KEY`** — service role key (Dashboard → Settings → API). Never expose this in the client; it is only used server-side in Actions.
+2. The workflow **`.github/workflows/index-all-videos-daily.yml`** runs on a **daily cron** (07:10 UTC by default) and can be run manually via **Actions → Daily index-all-videos → Run workflow**.
+
+Site-side “stale index” triggers (`/videos`, `getSchedule`) only fire if the index is older than **`INDEX_ALL_VIDEOS_STALE_MS`** (48 hours) in `lib/indexing-config.ts`, so they act as a **backup** if the cron misses a day instead of doubling full indexes after every daily cron.
+
 ## First-time Git + GitHub
 
 If this folder is not a git repository yet (e.g. you started from a ZIP):

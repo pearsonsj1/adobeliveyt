@@ -4,9 +4,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Header from "@/components/adobe-live/Header";
 import SocialFooter from "@/components/adobe-live/SocialFooter";
+import { fetchAllVideoIndexRows } from "@/lib/video-index-pagination";
 import { isShortFormatVideo } from "@/lib/youtube";
 
-export const revalidate = 3600;
+export const revalidate = 86400;
 
 const SITE_URL = "https://adobelive.com";
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
@@ -78,14 +79,16 @@ export default async function ToolPage({ params }: { params: { tool: string } })
   let rows: VideoRow[] = [];
   if (SUPABASE_URL && SUPABASE_ANON_KEY) {
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const { data } = await supabase
-      .from("video_index")
-      .select("id, title, thumbnail_url, video_url, published_at, duration, tags, description")
-      .eq("is_live_stream", false)
-      .or("stream_status.is.null,stream_status.neq.upcoming")
-      .contains("tags", [meta.tag])
-      .order("published_at", { ascending: false });
-    rows = data ?? [];
+    rows = await fetchAllVideoIndexRows<VideoRow>((rangeFrom, rangeTo) =>
+      supabase
+        .from("video_index")
+        .select("id, title, thumbnail_url, video_url, published_at, duration, tags, description")
+        .eq("is_live_stream", false)
+        .or("stream_status.is.null,stream_status.neq.upcoming")
+        .contains("tags", [meta.tag])
+        .order("published_at", { ascending: false })
+        .range(rangeFrom, rangeTo),
+    );
   }
 
   const videos: Video[] = rows

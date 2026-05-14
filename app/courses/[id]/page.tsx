@@ -5,7 +5,7 @@ import Header from "@/components/adobe-live/Header";
 import SocialFooter from "@/components/adobe-live/SocialFooter";
 import { getCourses, getPlaylistVideos } from "@/lib/youtube";
 
-export const revalidate = 3600;
+export const revalidate = 86400;
 
 const SITE_URL = "https://adobelive.com";
 

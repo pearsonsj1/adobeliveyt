@@ -4,7 +4,7 @@ import { getRecurringSeries, getCourses } from '@/lib/youtube';
 
 const SITE_URL = 'https://adobelive.com';
 
-export const revalidate = 3600;
+export const revalidate = 86400;
 
 const TOOL_SLUGS = [
   'photoshop', 'illustrator', 'premiere', 'after-effects',

@@ -6,6 +6,7 @@ import { CalendarDays, ChevronDown } from "lucide-react";
 import { ScheduleItem } from "@/lib/youtube";
 import ScheduleRow from "./ScheduleRow";
 import SectionHeader from "./SectionHeader";
+import { useLiveStreamIdsPoll } from "./useLiveStreamIdsPoll";
 
 interface ScheduleSectionProps {
   schedule: ScheduleItem[];
@@ -45,7 +46,15 @@ function groupByDay(items: ScheduleItem[], days: Date[]): Map<string, ScheduleIt
 
 const COLLAPSE_THRESHOLD = 2;
 
-function DayGroup({ day, items }: { day: Date; items: ScheduleItem[] }) {
+function DayGroup({
+  day,
+  items,
+  livePollIds,
+}: {
+  day: Date;
+  items: ScheduleItem[];
+  livePollIds: Set<string> | null;
+}) {
   const today = new Date();
   const isToday = isSameDay(day, today);
   const [expanded, setExpanded] = useState(false);
@@ -76,7 +85,7 @@ function DayGroup({ day, items }: { day: Date; items: ScheduleItem[] }) {
 
       <div className="flex flex-col gap-2">
         {(expanded ? items : items.slice(0, COLLAPSE_THRESHOLD)).map((item, i) => (
-          <ScheduleRow key={item.id} item={item} index={i} />
+          <ScheduleRow key={item.id} item={item} index={i} livePollIds={livePollIds} />
         ))}
         {overflow > 0 && (
           <button
@@ -96,6 +105,7 @@ function DayGroup({ day, items }: { day: Date; items: ScheduleItem[] }) {
 }
 
 export default function ScheduleSection({ schedule }: ScheduleSectionProps) {
+  const livePollIds = useLiveStreamIdsPoll();
   const days = getThisWeekDays();
   const grouped = groupByDay(schedule, days);
   // Only show days that have at least one stream
@@ -124,7 +134,7 @@ export default function ScheduleSection({ schedule }: ScheduleSectionProps) {
         </p>
         <div className="flex flex-col gap-2 max-w-3xl">
           {next.slice(0, 6).map((item, i) => (
-            <ScheduleRow key={item.id} item={item} index={i} />
+            <ScheduleRow key={item.id} item={item} index={i} livePollIds={livePollIds} />
           ))}
         </div>
       </section>
@@ -181,7 +191,7 @@ export default function ScheduleSection({ schedule }: ScheduleSectionProps) {
         {activeDays.map((day) => {
           const key = day.toISOString();
           const items = grouped.get(key) ?? [];
-          return <DayGroup key={key} day={day} items={items} />;
+          return <DayGroup key={key} day={day} items={items} livePollIds={livePollIds} />;
         })}
       </div>
     </section>

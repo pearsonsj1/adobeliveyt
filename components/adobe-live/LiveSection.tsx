@@ -11,7 +11,10 @@ interface LiveSectionProps {
   upcomingStreams: LiveStream[];
 }
 
-/** Poll `/api/live` on mount, every 90s, and ~2 minutes past each hour (YouTube often flips live shortly after the hour). */
+/**
+ * Poll `/api/live` on mount, every 90s, and ~2 minutes past each hour (YouTube often flips live shortly after the hour).
+ * Site catalog uses ~daily ISR + `youtube_cache`; this path stays warm for live and upcoming accuracy.
+ */
 const POLL_MINUTES_PAST_HOUR = 2;
 
 function useHourAlignedLivePoll(
@@ -221,7 +224,8 @@ export default function LiveSection({ liveStreams, upcomingStreams }: LiveSectio
 
   const effectiveLive = livePoll !== null ? livePoll : liveStreams;
   const effectiveUpcoming = upcomingPoll !== null ? upcomingPoll : upcomingStreams;
-  const hasLive = effectiveLive.some((s) => s.isLive);
+  const liveNowStreams = effectiveLive.filter((s) => s.isLive);
+  const hasLive = liveNowStreams.length > 0;
   const nextStream = !hasLive ? (effectiveUpcoming[0] ?? null) : null;
 
   if (!hasLive && !nextStream) return null;
@@ -241,7 +245,7 @@ export default function LiveSection({ liveStreams, upcomingStreams }: LiveSectio
     );
   }
 
-  const liveStream = effectiveLive[0]!;
+  const liveStream = liveNowStreams[0]!;
   const sharpThumb = liveStream.thumbnail
     ? liveStream.thumbnail.replace(/hqdefault|mqdefault|sddefault/, "maxresdefault")
     : liveStream.thumbnail;

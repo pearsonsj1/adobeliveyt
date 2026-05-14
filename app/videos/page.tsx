@@ -2,8 +2,10 @@ import { createClient } from "@supabase/supabase-js";
 import Header from "@/components/adobe-live/Header";
 import SocialFooter from "@/components/adobe-live/SocialFooter";
 import VideoLibrary from "@/components/adobe-live/VideoLibrary";
+import { INDEX_ALL_VIDEOS_STALE_MS } from "@/lib/indexing-config";
+import { fetchAllVideoIndexForLibrary } from "@/lib/video-index-pagination";
 
-export const revalidate = 300;
+export const revalidate = 86400;
 
 const SITE_URL = "https://adobelive.com";
 
@@ -67,7 +69,7 @@ export default async function VideosPage({ searchParams }: PageProps) {
           const rows = await staleRes.json() as { last_seen_at: string }[];
           const oldestSeen = rows[0]?.last_seen_at;
           const ageMs = oldestSeen ? Date.now() - new Date(oldestSeen).getTime() : Infinity;
-          if (ageMs > 6 * 60 * 60 * 1000) {
+          if (ageMs > INDEX_ALL_VIDEOS_STALE_MS) {
             fetch(`${supabaseUrl}/functions/v1/index-all-videos`, {
               method: "POST",
               headers: { Authorization: `Bearer ${anonKey}`, "Content-Type": "application/json" },
@@ -82,12 +84,9 @@ export default async function VideosPage({ searchParams }: PageProps) {
   let videos: LibraryVideo[] = [];
   if (hasSupabase) {
     const supabase = createClient(supabaseUrl, anonKey);
-    const { data } = await supabase
-      .from("video_index")
-      .select("id, title, description, thumbnail_url, video_url, duration, tags, published_at")
-      .order("published_at", { ascending: false });
+    const rows = await fetchAllVideoIndexForLibrary(supabase);
 
-    videos = (data ?? []).map((v) => ({
+    videos = rows.map((v) => ({
       id: v.id,
       title: v.title,
       description: v.description ?? "",
@@ -123,7 +122,8 @@ export default async function VideosPage({ searchParams }: PageProps) {
         name: "Adobe Live Video Library",
         description: "Complete library of Adobe Live tutorials, live stream replays, shorts, and courses.",
         numberOfItems: videos.length,
-        itemListElement: videos.slice(0, 500).map((v, i) => ({
+        // Cap embedded ListItems to keep HTML reasonable; full set is in the grid + video sitemap.
+        itemListElement: videos.slice(0, 2000).map((v, i) => ({
           "@type": "ListItem",
           position: i + 1,
           item: {

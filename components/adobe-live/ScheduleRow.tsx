@@ -35,19 +35,25 @@ function tagClass(tag: string): string {
 interface ScheduleRowProps {
   item: ScheduleItem;
   index: number;
+  /** From parent `useLiveStreamIdsPoll` — one `/api/live` poll per schedule block, not per row. */
+  livePollIds: Set<string> | null;
 }
 
-export default function ScheduleRow({ item, index }: ScheduleRowProps) {
+export default function ScheduleRow({ item, index, livePollIds }: ScheduleRowProps) {
   const { open } = usePreview();
   const date = new Date(item.scheduledTime);
-  const isPast = !item.isLive && date < new Date();
+  // After first poll, trust YouTube live list only (ISR can freeze stale `item.isLive` for hours).
+  const effectiveIsLive =
+    livePollIds !== null ? livePollIds.has(item.id) : item.isLive;
+  const hasStarted = date.getTime() <= Date.now();
+  const isPast = !effectiveIsLive && hasStarted;
   const timeStr = date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
   const dateStr = date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
 
   return (
     <motion.div
       className={`group flex items-center gap-3 p-3 rounded-xl border transition-all duration-200 ${
-        item.isLive
+        effectiveIsLive
           ? "border-[#FA0F00]/40 bg-[#FA0F00]/5 hover:bg-[#FA0F00]/8 hover:border-[#FA0F00]/60"
           : "border-white/8 hover:border-white/20 bg-black/20 hover:bg-white/5"
       }`}
@@ -68,6 +74,7 @@ export default function ScheduleRow({ item, index }: ScheduleRowProps) {
             tools: item.tools,
             host: item.host,
             scheduledTime: item.scheduledTime,
+            isLive: effectiveIsLive,
           })}
           className="relative flex-shrink-0 w-[100px] sm:w-[120px] aspect-video rounded-lg overflow-hidden bg-white/5 cursor-pointer"
           aria-label="Preview stream"
@@ -93,7 +100,7 @@ export default function ScheduleRow({ item, index }: ScheduleRowProps) {
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          {item.isLive && (
+          {effectiveIsLive && (
             <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#FA0F00] text-white text-[10px] font-bold uppercase tracking-wider flex-shrink-0">
               <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
               Live
@@ -125,7 +132,7 @@ export default function ScheduleRow({ item, index }: ScheduleRowProps) {
 
       {/* Relative time + actions */}
       <div className="flex items-center gap-2 flex-shrink-0">
-        {item.isLive ? (
+        {effectiveIsLive ? (
           <a
             href={item.videoUrl}
             target="_blank"
@@ -158,6 +165,7 @@ export default function ScheduleRow({ item, index }: ScheduleRowProps) {
                 tools: item.tools,
                 host: item.host,
                 scheduledTime: item.scheduledTime,
+                isLive: effectiveIsLive,
               })}
               className="p-1.5 rounded-lg bg-white/5 hover:bg-white/12 border border-white/10 text-white/40 hover:text-white/70 transition-all duration-200"
               aria-label="Preview stream"
