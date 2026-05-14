@@ -101,6 +101,36 @@ export default function ScheduleSection({ schedule }: ScheduleSectionProps) {
   // Only show days that have at least one stream
   const activeDays = days.filter((d) => (grouped.get(d.toISOString()) ?? []).length > 0);
 
+  // Upcoming streams exist but none land on Sun–Sat *this* week (local) — still show them.
+  if (activeDays.length === 0 && schedule.length > 0) {
+    const next = [...schedule].sort(
+      (a, b) => new Date(a.scheduledTime).getTime() - new Date(b.scheduledTime).getTime(),
+    );
+    return (
+      <section id="schedule" className="py-12 sm:py-16 px-4 sm:px-6">
+        <SectionHeader
+          icon={CalendarDays}
+          label="Schedule"
+          title="This Week on Adobe Live"
+          subtitle="Scheduled streams this week. All times shown in your local timezone."
+          action={{ label: "View full calendar", href: "/schedule" }}
+        />
+        <p className="text-white/45 text-sm max-w-2xl leading-relaxed -mt-2 mb-4">
+          Nothing scheduled Sunday–Saturday this week in your timezone. Here are the next sessions from the index — open the{" "}
+          <Link href="/schedule" className="text-[#FA0F00] hover:underline font-semibold">
+            full stream calendar
+          </Link>{" "}
+          for every date.
+        </p>
+        <div className="flex flex-col gap-2 max-w-3xl">
+          {next.slice(0, 6).map((item, i) => (
+            <ScheduleRow key={item.id} item={item} index={i} />
+          ))}
+        </div>
+      </section>
+    );
+  }
+
   if (activeDays.length === 0) {
     return (
       <section id="schedule" className="py-12 sm:py-16 px-4 sm:px-6">
@@ -112,11 +142,14 @@ export default function ScheduleSection({ schedule }: ScheduleSectionProps) {
           action={{ label: "View full calendar", href: "/schedule" }}
         />
         <p className="text-white/45 text-sm max-w-2xl leading-relaxed -mt-2 mb-2">
-          No upcoming streams are indexed for this week in the database yet. Open the{" "}
+          No upcoming streams are in your Supabase <code className="text-white/40 text-xs">video_index</code> yet (or
+          indexing is still running). Confirm <code className="text-white/40 text-xs">YOUTUBE_API_KEY</code> on Edge
+          Functions, run migrations, deploy functions, then invoke{" "}
+          <code className="text-white/40 text-xs">index-all-videos</code> or open{" "}
           <Link href="/schedule" className="text-[#FA0F00] hover:underline font-semibold">
-            full stream calendar
+            /schedule
           </Link>{" "}
-          (it may still be filling after Supabase indexing), or see what&apos;s live on{" "}
+          once to kick a background index. Live channel:{" "}
           <a
             href="https://www.youtube.com/@AdobeLiveCommunity"
             target="_blank"
