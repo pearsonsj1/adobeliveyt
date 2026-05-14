@@ -12,6 +12,8 @@ export const metadata: Metadata = {
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+/** Server-only: bypasses RLS so `/admin` can read analytics tables (RLS allows SELECT only to `authenticated`). */
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
 
 async function fetchAnalytics() {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
@@ -24,7 +26,8 @@ async function fetchAnalytics() {
     };
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const key = SUPABASE_SERVICE_ROLE_KEY || SUPABASE_ANON_KEY;
+  const supabase = createClient(SUPABASE_URL, key);
   const since7d = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const since30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 

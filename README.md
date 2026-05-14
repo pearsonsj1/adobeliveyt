@@ -42,6 +42,7 @@ Open [http://localhost:3000](http://localhost:3000).
 |----------|----------|-------------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes* | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes* | Supabase anon (public) key |
+| `SUPABASE_SERVICE_ROLE_KEY` | For `/admin` | Server-only. Lets the analytics dashboard **read** `search_queries`, `page_time_spent`, and `youtube_cta_clicks` (RLS otherwise blocks anon reads). Never expose as `NEXT_PUBLIC_*`. |
 | `ADOBE_LIVE_CHANNEL_ID` | No | YouTube channel ID (default is set in `lib/youtube.ts`) |
 
 \*The app degrades gracefully in some places without them, but **YouTube proxy, DB index, analytics, and most pages need Supabase** to behave correctly.
@@ -62,7 +63,7 @@ See Bolt’s docs: [Database: Secrets settings](https://support.bolt.new/cloud/d
 ## Deploying (Netlify / Vercel)
 
 1. Connect this repo to your host.
-2. Set the same variables in the project **Environment** UI (use the **anon** key, not the service role, for `NEXT_PUBLIC_*` unless you know you need otherwise).
+2. Set the same variables in the project **Environment** UI (use the **anon** key, not the service role, for `NEXT_PUBLIC_*` unless you know you need otherwise). Add **`SUPABASE_SERVICE_ROLE_KEY`** (service role) as a **server-only** secret so `/admin` analytics can read event tables.
 3. Build command: `npm run build`; publish/output per host defaults for Next.js.
 
 `netlify.toml` is included for Netlify.
