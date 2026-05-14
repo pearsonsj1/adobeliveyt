@@ -39,7 +39,10 @@ jobs:
             -d '{}' \
             --max-time 1200)"
           if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then
-            echo "::error::index-all-videos returned HTTP $code (curl uses exit 22 with -f for this)."
+            echo "::error::index-all-videos returned HTTP $code"
+            if [ "$code" = "404" ]; then
+              echo "::error::HTTP 404 means this Edge Function is not deployed to this Supabase project (or the URL is wrong). From your machine: \`supabase link\` then \`supabase functions deploy index-all-videos\`. Or use the Supabase Dashboard → Edge Functions → deploy."
+            fi
             echo "Response body (first 2000 chars):"
             head -c 2000 /tmp/index-all-body.txt || true
             echo ""
