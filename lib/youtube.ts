@@ -1368,6 +1368,19 @@ export async function getCourses(): Promise<CoursePlaylist[]> {
   return COURSE_PLAYLISTS;
 }
 
+/** Title / description search hints for an instructor when playlist_ids / YouTube API are missing. */
+function instructorTitleLookupHints(name: string): string[] {
+  const raw = name.trim();
+  const folded = raw.normalize("NFD").replace(/\p{M}/gu, "");
+  const hints = new Set<string>();
+  if (raw.length >= 3) hints.add(raw);
+  if (folded.length >= 3 && folded.toLowerCase() !== raw.toLowerCase()) hints.add(folded);
+  const parts = raw.split(/\s+/).filter(Boolean);
+  const last = parts[parts.length - 1];
+  if (last && last.length >= 4) hints.add(last);
+  return Array.from(hints);
+}
+
 function mapVideoIndexRowsToPlaylistItems(
   rows: Array<{
     id: string;
@@ -1403,7 +1416,7 @@ type VideoIndexPlaylistRow = {
 };
 
 function indexRowIsPublishedReplay(r: Pick<VideoIndexPlaylistRow, "stream_status">): boolean {
-  return r.stream_status == null || r.stream_status === "" || r.stream_status !== "upcoming";
+  return r.stream_status !== "upcoming" && r.stream_status !== "live";
 }
 
 function mergeVideoIndexRowsById(rows: VideoIndexPlaylistRow[]): VideoIndexPlaylistRow[] {
@@ -1500,10 +1513,35 @@ async function getPlaylistVideosFromIndex(playlistId: string): Promise<PlaylistV
       }
     }
 
-    // 3) ALOD mini-course playlists: never infer lessons from `tags` — that matches every video
-    //    with the same tool (e.g. all "Photoshop" in the index) instead of the real playlist (~8).
-    //    Use `playlist_ids` (step 1) or the YouTube `playlistItems` path in `getPlaylistVideos`.
-    if (COURSE_PLAYLISTS.some((c) => c.playlistId === playlistId)) {
+    // 3) Mini-courses: never use tool tags alone (too broad). If playlist_ids is empty and
+    //    YouTube failed, match index rows whose tags include the course tool (or extra tags)
+    //    AND whose title mentions the instructor (or ASCII-folded / last-name variant).
+    const course = COURSE_PLAYLISTS.find((c) => c.playlistId === playlistId);
+    if (course) {
+      const hints = instructorTitleLookupHints(course.instructor);
+      const tagsToTry = Array.from(new Set([course.tool, ...course.tags]));
+      const byId = new Map<string, VideoIndexPlaylistRow>();
+
+      for (const tag of tagsToTry) {
+        for (const hint of hints) {
+          const rows = await fetchAllVideoIndexRows((rangeFrom, rangeTo) =>
+            baseOrdered()
+              .contains("tags", [tag])
+              .ilike("title", `%${hint}%`)
+              .range(rangeFrom, rangeTo),
+          );
+          for (const r of rows as VideoIndexPlaylistRow[]) {
+            if (!byId.has(r.id)) byId.set(r.id, r);
+          }
+        }
+      }
+
+      const merged = mergeVideoIndexRowsById(Array.from(byId.values()).filter(indexRowIsPublishedReplay));
+      const cap = Math.min(merged.length, Math.max(course.videoCount + 10, 32));
+      const capped = merged.slice(0, cap);
+      if (capped.length) {
+        return mapVideoIndexRowsToPlaylistItems(capped);
+      }
       return [];
     }
 
@@ -1538,11 +1576,10 @@ export async function getPlaylistVideos(
   playlistId: string,
   cacheTtlMs: number = CACHE_TTL_MS,
 ): Promise<PlaylistVideoItem[]> {
-  // v9: YouTube Data API (via proxy) is the source of truth for playlist membership. Each
-  // playlist is cached in `youtube_cache` for `cacheTtlMs` (default 24h). When the API
-  // returns nothing or errors, fall back to `video_index` (tags / playlist_ids / series hints).
+  // v10: YouTube API first; index fallback includes course rows matched by instructor + tool tags
+  // when playlist_ids is empty. Cache key bump clears stale empty v9 entries.
   return withCache(
-    `playlist_videos:v9:${playlistId}`,
+    `playlist_videos:v10:${playlistId}`,
     async () => {
       try {
         const data = await proxyFetch("playlist_videos", { playlistId }) as YTPlaylistItemResponse | null;
