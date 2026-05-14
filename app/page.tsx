@@ -161,14 +161,17 @@ export default async function AdobeLivePage() {
           const scheduleFiltered = nextUpcomingId
             ? schedule.filter((s) => s.id !== nextUpcomingId)
             : schedule;
-          return scheduleFiltered.length > 0 ? (
+          // If that was the only row, still show the schedule block (dedupe would hide the whole section otherwise).
+          const scheduleForSection =
+            scheduleFiltered.length > 0 ? scheduleFiltered : schedule;
+          return (
             <>
               <div className="max-w-7xl mx-auto">
-                <ScheduleSection schedule={scheduleFiltered} />
+                <ScheduleSection schedule={scheduleForSection} />
               </div>
               <div className="h-px bg-gradient-to-r from-transparent via-white/8 to-transparent" />
             </>
-          ) : null;
+          );
         })()}
 
         <div className="max-w-7xl mx-auto">
