@@ -198,11 +198,11 @@ export async function getRecentVideosFromIndex(): Promise<VideoItem[]> {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return [];
   try {
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/video_index?select=id,title,thumbnail_url,video_url,published_at,duration,tags&is_live_stream=eq.false&or=(stream_status.is.null,stream_status.neq.upcoming)&order=published_at.desc&limit=6`,
+      `${SUPABASE_URL}/rest/v1/video_index?select=id,title,thumbnail_url,video_url,published_at,duration,tags&is_live_stream=eq.false&or=(stream_status.is.null,stream_status.neq.upcoming)&order=published_at.desc&limit=24`,
       { headers: dbHeaders(), cache: "no-store" },
     );
     if (!res.ok) return [];
-    return mapIndexRows(await res.json());
+    return mapIndexRows(await res.json()).filter((v) => !isShortFormatVideo(v)).slice(0, 6);
   } catch {
     return [];
   }
@@ -216,20 +216,20 @@ export async function getPopularVideosFromIndex(): Promise<VideoItem[]> {
   try {
     const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
     const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/video_index?select=id,title,thumbnail_url,video_url,published_at,duration,tags&is_live_stream=eq.false&or=(stream_status.is.null,stream_status.neq.upcoming)&published_at=gte.${encodeURIComponent(since)}&order=published_at.desc&limit=10`,
+      `${SUPABASE_URL}/rest/v1/video_index?select=id,title,thumbnail_url,video_url,published_at,duration,tags&is_live_stream=eq.false&or=(stream_status.is.null,stream_status.neq.upcoming)&published_at=gte.${encodeURIComponent(since)}&order=published_at.desc&limit=30`,
       { headers: dbHeaders(), cache: "no-store" },
     );
     if (!res.ok) return [];
     const rows = await res.json();
-    // If the 3-month window has fewer than 5 results, widen to all time so the section never looks empty
+    const take = (raw: typeof rows) => mapIndexRows(raw).filter((v) => !isShortFormatVideo(v)).slice(0, 10);
     if (rows.length < 5) {
       const fallback = await fetch(
-        `${SUPABASE_URL}/rest/v1/video_index?select=id,title,thumbnail_url,video_url,published_at,duration,tags&is_live_stream=eq.false&or=(stream_status.is.null,stream_status.neq.upcoming)&order=published_at.desc&limit=10`,
+        `${SUPABASE_URL}/rest/v1/video_index?select=id,title,thumbnail_url,video_url,published_at,duration,tags&is_live_stream=eq.false&or=(stream_status.is.null,stream_status.neq.upcoming)&order=published_at.desc&limit=40`,
         { headers: dbHeaders(), cache: "no-store" },
       );
-      if (fallback.ok) return mapIndexRows(await fallback.json());
+      if (fallback.ok) return take(await fallback.json());
     }
-    return mapIndexRows(rows);
+    return take(rows);
   } catch {
     return [];
   }
@@ -395,6 +395,35 @@ function parseDuration(iso: string): string {
   const ss = s.toString().padStart(2, "0");
   if (h > 0) return `${h}:${m.toString().padStart(2, "0")}:${ss}`;
   return `${m}:${ss}`;
+}
+
+/** Total seconds from ISO 8601 duration (YouTube contentDetails.duration). */
+function isoDurationTotalSeconds(iso: string): number | null {
+  const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!match) return null;
+  const h = parseInt(match[1] ?? "0", 10);
+  const m = parseInt(match[2] ?? "0", 10);
+  const s = parseInt(match[3] ?? "0", 10);
+  return h * 3600 + m * 60 + s;
+}
+
+/** True for ≤60s wall time (Shorts) from ISO duration. */
+function isShortLikeIso(iso: string): boolean {
+  if (!iso || iso === "P0D") return false;
+  const t = isoDurationTotalSeconds(iso);
+  return t !== null && t > 0 && t <= 60;
+}
+
+/** True for Shorts URLs or display durations ≤60s (index / API fallbacks). */
+export function isShortFormatVideo(v: Pick<VideoItem, "duration" | "videoUrl">): boolean {
+  if (v.videoUrl.includes("/shorts/")) return true;
+  const parts = v.duration.split(":").map((x) => parseInt(x, 10));
+  if (!v.duration || parts.length === 0 || parts.some((n) => Number.isNaN(n))) return false;
+  let sec = 0;
+  if (parts.length === 3) sec = parts[0] * 3600 + parts[1] * 60 + parts[2];
+  else if (parts.length === 2) sec = parts[0] * 60 + parts[1];
+  else sec = parts[0];
+  return sec > 0 && sec <= 60;
 }
 
 // Known recurring series — detected by title pattern before tool inference.
@@ -682,14 +711,7 @@ export async function getRecentVideos(): Promise<VideoItem[]> {
           if (!vid || vid.status?.privacyStatus !== "public") return false;
           const dur = vid.contentDetails?.duration ?? "";
           if (dur === "P0D") return false;
-          // Exclude shorts (≤60s)
-          const match = dur.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
-          if (match) {
-            const h = parseInt(match[1] ?? "0");
-            const m = parseInt(match[2] ?? "0");
-            const s = parseInt(match[3] ?? "0");
-            if (h === 0 && m === 0 && s <= 60) return false;
-          }
+          if (isShortLikeIso(dur)) return false;
           return true;
         })
         .slice(0, 6)
@@ -769,7 +791,15 @@ export async function getPopularVideos(): Promise<VideoItem[]> {
       const details = await fetchVideoDetails(ids);
 
       return search.items
-        .filter((item) => details.get(item.id.videoId)?.status?.privacyStatus === "public")
+        .filter((item) => {
+          if (item.snippet.liveBroadcastContent !== "none") return false;
+          const vid = details.get(item.id.videoId);
+          if (!vid || vid.status?.privacyStatus !== "public") return false;
+          const dur = vid.contentDetails?.duration ?? "";
+          if (dur === "P0D") return false;
+          if (isShortLikeIso(dur)) return false;
+          return true;
+        })
         .slice(0, 10)
         .map((item): VideoItem => {
           const vid = details.get(item.id.videoId)!;

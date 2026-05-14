@@ -1,4 +1,4 @@
-import { getLiveNow, getUpcomingStreams, getRecentVideos, getPopularVideos, getRecentVideosFromIndex, getPopularVideosFromIndex, getToolPlaylists, getSchedule, getRecurringSeries, getCourses, getShorts, checkQuotaExhausted, getVideoCount, indexVideos, indexPlaylistVideos, getPlaylistVideos, MOBILE_TEMPLATES_PLAYLIST_ID } from "@/lib/youtube";
+import { getLiveNow, getUpcomingStreams, getRecentVideos, getPopularVideos, getRecentVideosFromIndex, getPopularVideosFromIndex, getToolPlaylists, getSchedule, getRecurringSeries, getCourses, getShorts, checkQuotaExhausted, getVideoCount, indexVideos, indexPlaylistVideos, getPlaylistVideos, MOBILE_TEMPLATES_PLAYLIST_ID, isShortFormatVideo } from "@/lib/youtube";
 import Header from "@/components/adobe-live/Header";
 import HeroSection from "@/components/adobe-live/HeroSection";
 import LiveSection from "@/components/adobe-live/LiveSection";
@@ -75,10 +75,13 @@ export default async function AdobeLivePage() {
     ];
   })();
 
+  const recentForHome = recentVideos.filter((v) => !isShortFormatVideo(v));
+  const popularForHome = popularVideos.filter((v) => !isShortFormatVideo(v));
+
   // Persist all surfaced videos to the index (fire-and-forget — never blocks render)
   const allVideos = [
-    ...recentVideos,
-    ...popularVideos.filter((v) => !recentVideos.some((r) => r.id === v.id)),
+    ...recentForHome,
+    ...popularForHome.filter((v) => !recentForHome.some((r) => r.id === v.id)),
     ...shorts,
   ];
   indexVideos(allVideos).catch(() => {});
@@ -169,13 +172,7 @@ export default async function AdobeLivePage() {
         })()}
 
         <div className="max-w-7xl mx-auto">
-          <VideosSection recent={recentVideos} popular={popularVideos} />
-        </div>
-
-        <div className="h-px bg-gradient-to-r from-transparent via-white/8 to-transparent" />
-
-        <div className="max-w-7xl mx-auto">
-          <TrendingSection />
+          <VideosSection recent={recentForHome} popular={popularForHome} />
         </div>
 
         {shorts.length > 0 && (
@@ -186,6 +183,12 @@ export default async function AdobeLivePage() {
             </div>
           </>
         )}
+
+        <div className="h-px bg-gradient-to-r from-transparent via-white/8 to-transparent" />
+
+        <div className="max-w-7xl mx-auto">
+          <TrendingSection />
+        </div>
 
         {mobileTemplates.length > 0 && (
           <>
