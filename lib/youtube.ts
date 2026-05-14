@@ -1,3 +1,5 @@
+import { createClient } from "@supabase/supabase-js";
+
 export interface LiveStream {
   id: string;
   title: string;
@@ -89,12 +91,14 @@ const CHANNEL_ID = process.env.ADOBE_LIVE_CHANNEL_ID ?? "UCVMJPRXrBIOFDBZEaF-_pE
 
 // Live list uses a short TTL so new broadcasts appear without hour-long stale empties.
 const LIVE_NOW_CACHE_TTL_MS = 2 * 60 * 1000;
-// Video content every 24 h; everything else every 48 h.
-const CACHE_TTL_MS = 48 * 60 * 60 * 1000;
-const VIDEO_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
-/** Per-playlist `youtube_cache` TTL for `/series/[slug]` — refresh playlist payload at most about once per week. */
-export const SERIES_PLAYLIST_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+/** Default `youtube_cache` TTL for catalog data (playlists, video metadata, etc.). Live uses `LIVE_NOW_CACHE_TTL_MS`. */
+export const DAILY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const CACHE_TTL_MS = DAILY_CACHE_TTL_MS;
+const VIDEO_CACHE_TTL_MS = DAILY_CACHE_TTL_MS;
+
+/** Per-playlist `youtube_cache` TTL for `/series/[slug]` — same daily cadence as other catalog reads. */
+export const SERIES_PLAYLIST_CACHE_TTL_MS = DAILY_CACHE_TTL_MS;
 
 // YouTube quota resets at midnight Pacific. We mark quota exhaustion in the DB
 // and clear it after 24 hours so the next day's quota gets used automatically.
@@ -1015,7 +1019,7 @@ export async function getSchedule(): Promise<ScheduleItem[]> {
         const staleRows = staleRes.ok ? await staleRes.json() as { last_seen_at: string }[] : [];
         const lastSeen = staleRows[0]?.last_seen_at;
         const ageMs = lastSeen ? Date.now() - new Date(lastSeen).getTime() : Infinity;
-        if (ageMs > 4 * 60 * 60 * 1000) {
+        if (ageMs > 24 * 60 * 60 * 1000) {
           fetch(`${SUPABASE_URL}/functions/v1/index-all-videos`, {
             method: "POST",
             headers: { Authorization: `Bearer ${SUPABASE_ANON_KEY}`, "Content-Type": "application/json" },
@@ -1029,7 +1033,8 @@ export async function getSchedule(): Promise<ScheduleItem[]> {
       .filter((r) => r.scheduled_time)
       .map((r): ScheduleItem => {
         const tools = r.tags?.length ? r.tags : inferTools(r.title, r.description);
-        const isLive = liveSet.has(r.id) || r.stream_status === "live";
+        // DB `stream_status` can lag after a stream ends; YouTube `live_now` is the source of truth for live badges.
+        const isLive = liveSet.has(r.id);
         return {
           id: r.id,
           title: r.title,
@@ -1307,6 +1312,38 @@ export async function getCourses(): Promise<CoursePlaylist[]> {
   return withCache("courses", async () => COURSE_PLAYLISTS);
 }
 
+function mapVideoIndexRowsToPlaylistItems(
+  rows: Array<{
+    id: string;
+    title: string;
+    thumbnail_url: string;
+    video_url: string;
+    published_at: string | null;
+    duration: string;
+    description: string;
+  }>,
+): PlaylistVideoItem[] {
+  return rows.map((r, i): PlaylistVideoItem => ({
+    id: r.id,
+    title: r.title,
+    thumbnail: r.thumbnail_url,
+    duration: r.duration ?? "",
+    publishedAt: r.published_at ?? "",
+    viewCount: 0,
+    position: i,
+    description: r.description ?? "",
+  }));
+}
+
+/** Distinctive fragment for ILIKE when `playlist_ids` was never backfilled for a series. */
+function seriesTitleSearchHint(full: string): string | null {
+  let s = full.replace(/^Adobe Live:\s*/i, "").replace(/^The\s+/i, "");
+  s = s.split(":")[0].split("|")[0].trim();
+  const wi = s.toLowerCase().indexOf(" with ");
+  if (wi > 5) s = s.slice(0, wi).trim();
+  return s.length >= 4 ? s : null;
+}
+
 // ---------------------------------------------------------------------------
 // Playlist videos + info
 // ---------------------------------------------------------------------------
@@ -1338,25 +1375,66 @@ interface YTPlaylistInfoResponse {
 async function getPlaylistVideosFromIndex(playlistId: string): Promise<PlaylistVideoItem[]> {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return [];
   try {
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/video_index?select=id,title,thumbnail_url,video_url,published_at,duration,tags,description&playlist_id=eq.${encodeURIComponent(playlistId)}&is_live_stream=eq.false&order=published_at.asc&limit=200`,
-      { headers: dbHeaders(), cache: "no-store" },
-    );
-    if (!res.ok) return [];
-    const rows = await res.json() as Array<{
-      id: string; title: string; thumbnail_url: string; video_url: string;
-      published_at: string | null; duration: string; tags: string[]; description: string;
-    }>;
-    return rows.map((r, i): PlaylistVideoItem => ({
-      id: r.id,
-      title: r.title,
-      thumbnail: r.thumbnail_url,
-      duration: r.duration ?? "",
-      publishedAt: r.published_at ?? "",
-      viewCount: 0,
-      position: i,
-      description: r.description ?? "",
-    }));
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
+    const selectCols =
+      "id,title,thumbnail_url,video_url,published_at,duration,tags,description";
+
+    const base = () =>
+      supabase
+        .from("video_index")
+        .select(selectCols)
+        .eq("is_short", false)
+        .or("stream_status.is.null,stream_status.neq.upcoming")
+        .order("published_at", { ascending: true })
+        .limit(200);
+
+    // 1) Preferred: rows explicitly tagged with this playlist id (from indexing).
+    const byPlaylist = await base().contains("playlist_ids", [playlistId]);
+    if (!byPlaylist.error && byPlaylist.data?.length) {
+      return mapVideoIndexRowsToPlaylistItems(byPlaylist.data);
+    }
+
+    // 2) Tool playlist cards: same tag membership as /tools/[slug] (often populated when playlist_ids is not).
+    const toolName = TOOL_PLAYLIST_IDS.find((p) => p.id === playlistId)?.tool;
+    if (toolName) {
+      const byTag = await base().contains("tags", [toolName]);
+      if (!byTag.error && byTag.data?.length) {
+        return mapVideoIndexRowsToPlaylistItems(byTag.data);
+      }
+    }
+
+    // 3) ALOD mini-courses: primary tool tag (broad — best-effort when playlist_ids is empty).
+    const course = COURSE_PLAYLISTS.find((c) => c.playlistId === playlistId);
+    if (course) {
+      const byCourseTool = await base().contains("tags", [course.tool]);
+      if (!byCourseTool.error && byCourseTool.data?.length) {
+        return mapVideoIndexRowsToPlaylistItems(byCourseTool.data);
+      }
+      const alt = course.tags.find((t) => t !== course.tool);
+      if (alt) {
+        const byAlt = await base().contains("tags", [alt]);
+        if (!byAlt.error && byAlt.data?.length) {
+          return mapVideoIndexRowsToPlaylistItems(byAlt.data);
+        }
+      }
+    }
+
+    // 4) Recurring series: title fragment (last resort when playlist_ids never merged).
+    const series = RECURRING_SERIES.find((s) => s.playlistId === playlistId);
+    if (series) {
+      const hint = seriesTitleSearchHint(series.title);
+      if (hint) {
+        const byTitle = await base().ilike("title", `%${hint}%`);
+        if (!byTitle.error && byTitle.data?.length) {
+          return mapVideoIndexRowsToPlaylistItems(byTitle.data);
+        }
+      }
+    }
+
+    return [];
   } catch {
     return [];
   }
@@ -1366,7 +1444,8 @@ export async function getPlaylistVideos(
   playlistId: string,
   cacheTtlMs: number = CACHE_TTL_MS,
 ): Promise<PlaylistVideoItem[]> {
-  return withCache(`playlist_videos:${playlistId}`, async () => {
+  // v5: bump after DB backfill (`backfill-playlist-membership`) so cached [] / stale lists refresh.
+  return withCache(`playlist_videos:v5:${playlistId}`, async () => {
     try {
       const data = await proxyFetch("playlist_videos", { playlistId }) as YTPlaylistItemResponse | null;
       if (!data?.items?.length) {
