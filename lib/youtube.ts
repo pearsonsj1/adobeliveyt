@@ -1292,6 +1292,17 @@ const COURSE_PLAYLISTS: CoursePlaylist[] = [
     tool: "Photoshop",
     tags: ["Photoshop", "Lightroom"],
   },
+  {
+    id: "pixipui",
+    title: "Motion Comics & After Effects with Pixipui",
+    instructor: "Raye Belvedere",
+    playlistId: "PLMMOwZoEbhuwYxeAYBfE_-nrwY0bfuIAT",
+    playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuwYxeAYBfE_-nrwY0bfuIAT",
+    videoCount: 8,
+    thumbnail: "https://i.ytimg.com/vi/-LfVs-bVf90/hqdefault.jpg",
+    tool: "After Effects",
+    tags: ["After Effects", "Illustrator"],
+  },
 ];
 
 export async function getCourses(): Promise<CoursePlaylist[]> {

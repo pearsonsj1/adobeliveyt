@@ -50,6 +50,15 @@ export function trackContentClick(
   });
 }
 
+export function trackPageView(path: string, referrer: string, pageTitle: string) {
+  if (!path) return;
+  post("page_views", {
+    path: path.slice(0, 512),
+    referrer: referrer.slice(0, 500),
+    page_title: pageTitle.slice(0, 240),
+  });
+}
+
 export function addUtm(url: string, params: { source?: string; medium?: string; campaign?: string; content?: string }) {
   try {
     const u = new URL(url);

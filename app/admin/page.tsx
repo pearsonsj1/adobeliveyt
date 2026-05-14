@@ -23,6 +23,9 @@ async function fetchAnalytics() {
       searchQueries7d: [],
       ytCtaClicks7d: [],
       timeSpent7d: [],
+      pageViews7d: [],
+      pageViews30d: [],
+      guideClicks7d: [],
     };
   }
 
@@ -37,6 +40,9 @@ async function fetchAnalytics() {
     searchQueries7d,
     ytCtaClicks7d,
     timeSpent7d,
+    pageViews7d,
+    pageViews30d,
+    guideClicks7d,
   ] = await Promise.all([
     supabase
       .from("content_clicks")
@@ -63,6 +69,21 @@ async function fetchAnalytics() {
       .select("video_id, seconds_spent, clicked_youtube, created_at")
       .gte("created_at", since7d)
       .limit(1000),
+    supabase
+      .from("page_views")
+      .select("path, page_title, created_at")
+      .gte("created_at", since7d)
+      .limit(5000),
+    supabase
+      .from("page_views")
+      .select("path, page_title, created_at")
+      .gte("created_at", since30d)
+      .limit(8000),
+    supabase
+      .from("guide_clicks")
+      .select("node_id, choice_label, destination_url, destination_label, created_at")
+      .gte("created_at", since7d)
+      .limit(2000),
   ]);
 
   return {
@@ -71,6 +92,9 @@ async function fetchAnalytics() {
     searchQueries7d: searchQueries7d.data ?? [],
     ytCtaClicks7d: ytCtaClicks7d.data ?? [],
     timeSpent7d: timeSpent7d.data ?? [],
+    pageViews7d: pageViews7d.data ?? [],
+    pageViews30d: pageViews30d.data ?? [],
+    guideClicks7d: guideClicks7d.data ?? [],
   };
 }
 

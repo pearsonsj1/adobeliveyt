@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { TrendingUp, Search, Youtube, Clock, Eye, ChartBar as BarChart2, Flame, ChevronRight, CircleAlert as AlertCircle, Zap } from "lucide-react";
+import { TrendingUp, Search, Youtube, Clock, Eye, ChartBar as BarChart2, Flame, ChevronRight, CircleAlert as AlertCircle, Zap, LayoutGrid, MousePointer2 } from "lucide-react";
 
 interface ContentClick {
   content_id: string;
@@ -35,6 +35,20 @@ interface TimeSpent {
   created_at: string;
 }
 
+interface PageView {
+  path: string;
+  page_title: string;
+  created_at: string;
+}
+
+interface GuideClick {
+  node_id: string;
+  choice_label: string;
+  destination_url: string | null;
+  destination_label: string | null;
+  created_at: string;
+}
+
 interface Props {
   data: {
     contentClicks7d: ContentClick[];
@@ -42,6 +56,9 @@ interface Props {
     searchQueries7d: SearchQuery[];
     ytCtaClicks7d: YtCtaClick[];
     timeSpent7d: TimeSpent[];
+    pageViews7d: PageView[];
+    pageViews30d: PageView[];
+    guideClicks7d: GuideClick[];
   };
 }
 
@@ -100,6 +117,7 @@ type Period = "7d" | "30d";
 export default function AdminDashboard({ data }: Props) {
   const [period, setPeriod] = useState<Period>("7d");
   const clicks = period === "7d" ? data.contentClicks7d : data.contentClicks30d;
+  const pageViews = period === "7d" ? data.pageViews7d : data.pageViews30d;
 
   // Top content by clicks
   const topContent = useMemo(() => {
@@ -195,8 +213,28 @@ export default function AdminDashboard({ data }: Props) {
       .slice(0, 6);
   }, [data.timeSpent7d]);
 
+  const topRoutes = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of pageViews) map.set(r.path, (map.get(r.path) ?? 0) + 1);
+    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]).slice(0, 16);
+  }, [pageViews]);
+
+  const pathfinderDestinations = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const g of data.guideClicks7d) {
+      const label =
+        (g.destination_label && g.destination_label.trim()) ||
+        (g.destination_url && g.destination_url.trim()) ||
+        g.choice_label;
+      if (!label) continue;
+      map.set(label, (map.get(label) ?? 0) + 1);
+    }
+    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]).slice(0, 14);
+  }, [data.guideClicks7d]);
+
   const totalClicks = clicks.length;
   const uniqueContent = new Set(clicks.map((c) => c.content_id)).size;
+  const totalPageViews = pageViews.length;
 
   return (
     <main className="pt-24 pb-20 px-4 sm:px-6">
@@ -217,8 +255,17 @@ export default function AdminDashboard({ data }: Props) {
               <h1 className="text-white text-3xl sm:text-4xl font-black tracking-tight">Channel Dashboard</h1>
               <p className="text-white/40 text-sm mt-1">Site engagement data to inform Adobe Live content decisions.</p>
             </div>
-            {/* Period toggle */}
-            <div className="flex items-center gap-1 p-1 rounded-lg bg-white/5 border border-white/10 w-fit">
+            <div className="flex flex-col items-stretch sm:items-end gap-2">
+              <form action="/api/admin/logout" method="POST" className="self-end">
+                <button
+                  type="submit"
+                  className="text-[11px] font-semibold text-white/35 hover:text-white/60 border border-white/10 hover:border-white/20 rounded-lg px-3 py-1.5 transition-colors"
+                >
+                  Log out
+                </button>
+              </form>
+              {/* Period toggle */}
+              <div className="flex items-center gap-1 p-1 rounded-lg bg-white/5 border border-white/10 w-fit">
               {(["7d", "30d"] as Period[]).map((p) => (
                 <button
                   key={p}
@@ -230,14 +277,16 @@ export default function AdminDashboard({ data }: Props) {
                   {p === "7d" ? "Last 7 days" : "Last 30 days"}
                 </button>
               ))}
+              </div>
             </div>
           </div>
         </motion.div>
 
         {/* Summary stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-10">
           <StatCard label="Total Clicks" value={totalClicks.toLocaleString()} sub={`${period} period`} icon={Eye} color="bg-[#FA0F00]/15 text-[#FA0F00]" />
           <StatCard label="Content Pieces" value={uniqueContent} sub="received clicks" icon={TrendingUp} color="bg-[#31A8FF]/15 text-[#31A8FF]" />
+          <StatCard label="Page views" value={totalPageViews.toLocaleString()} sub={`route hits (${period})`} icon={LayoutGrid} color="bg-[#A855F7]/15 text-[#A855F7]" />
           <StatCard label="Avg Time on Video" value={formatSeconds(avgTimeSpent)} sub="per page visit (7d)" icon={Clock} color="bg-[#FF9A00]/15 text-[#FF9A00]" />
           <StatCard label="YouTube CTA Rate" value={`${ytClickRate}%`} sub="clicked Watch on YT (7d)" icon={Youtube} color="bg-[#00C2A8]/15 text-[#00C2A8]" />
         </div>
@@ -306,6 +355,55 @@ export default function AdminDashboard({ data }: Props) {
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+          <div>
+            <SectionTitle icon={LayoutGrid} title={`Top routes — ${period}`} />
+            {topRoutes.length === 0 ? (
+              <p className="text-white/25 text-sm">No page view data yet — appears after the page_views migration is applied and traffic arrives.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {topRoutes.map(([path, count], i) => {
+                  const bar = Math.max(8, Math.round((count / (topRoutes[0]?.[1] ?? 1)) * 100));
+                  return (
+                    <div
+                      key={path + i}
+                      className="relative flex items-center gap-3 px-4 py-3 rounded-xl border border-white/8 bg-white/[0.02] overflow-hidden hover:border-white/15 transition-colors"
+                    >
+                      <div className="absolute left-0 top-0 bottom-0 bg-white/[0.04] rounded-xl transition-all" style={{ width: `${bar}%` }} />
+                      <span className="relative z-10 text-white/25 font-black text-sm w-5 text-center flex-shrink-0">{i + 1}</span>
+                      <span className="relative z-10 flex-1 text-white/75 text-sm font-mono truncate">{path}</span>
+                      <span className="relative z-10 text-white/60 text-xs font-bold tabular-nums flex-shrink-0">{count}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          <div>
+            <SectionTitle icon={MousePointer2} title="Pathfinder — top destinations (7d)" />
+            {pathfinderDestinations.length === 0 ? (
+              <p className="text-white/25 text-sm">No PathFinder quiz completions yet — appears after users finish flows on /guide.</p>
+            ) : (
+              <div className="space-y-1.5">
+                {pathfinderDestinations.map(([label, count], i) => {
+                  const bar = Math.max(8, Math.round((count / (pathfinderDestinations[0]?.[1] ?? 1)) * 100));
+                  return (
+                    <div
+                      key={label + i}
+                      className="relative flex items-center gap-3 px-4 py-3 rounded-xl border border-white/8 bg-white/[0.02] overflow-hidden hover:border-white/15 transition-colors"
+                    >
+                      <div className="absolute left-0 top-0 bottom-0 bg-white/[0.04] rounded-xl transition-all" style={{ width: `${bar}%` }} />
+                      <span className="relative z-10 text-white/25 font-black text-sm w-5 text-center flex-shrink-0">{i + 1}</span>
+                      <span className="relative z-10 flex-1 text-white/75 text-sm font-medium truncate">{label}</span>
+                      <span className="relative z-10 text-white/60 text-xs font-bold tabular-nums flex-shrink-0">{count}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 

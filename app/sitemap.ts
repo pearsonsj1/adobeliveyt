@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { createClient } from '@supabase/supabase-js';
 import { getRecurringSeries, getCourses } from '@/lib/youtube';
+import { getInstructorSummaries } from '@/lib/instructors';
 
 const SITE_URL = 'https://adobelive.com';
 
@@ -12,7 +13,11 @@ const TOOL_SLUGS = [
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [series, courses] = await Promise.all([getRecurringSeries(), getCourses()]);
+  const [series, courses, instructors] = await Promise.all([
+    getRecurringSeries(),
+    getCourses(),
+    getInstructorSummaries(),
+  ]);
 
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: SITE_URL,                    lastModified: new Date(), changeFrequency: 'hourly',  priority: 1 },
@@ -23,6 +28,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/tools`,         lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.75 },
     { url: `${SITE_URL}/series`,        lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.75 },
     { url: `${SITE_URL}/courses`,       lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.75 },
+    { url: `${SITE_URL}/instructors`,    lastModified: new Date(), changeFrequency: 'weekly',  priority: 0.72 },
     // Individual tool pages
     ...TOOL_SLUGS.map((slug) => ({
       url: `${SITE_URL}/tools/${slug}`,
@@ -43,6 +49,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(),
       changeFrequency: 'monthly' as const,
       priority: 0.7,
+    })),
+    ...instructors.map((i) => ({
+      url: `${SITE_URL}/instructors/${i.slug}`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly' as const,
+      priority: 0.68,
     })),
   ];
 

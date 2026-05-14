@@ -59,121 +59,96 @@ interface PathNode {
   }[];
 }
 
-/** Time-aware greeting for intro + root (no PII, client-only). */
-function greetingWord(): string {
-  const h = new Date().getHours();
-  if (h >= 5 && h < 12) return "Good morning";
-  if (h >= 12 && h < 17) return "Good afternoon";
-  if (h >= 17 && h < 22) return "Good evening";
-  return "Hey there";
-}
-
-/** Root card copy when we know which app they care about (e.g. ?tool=Illustrator). */
-function rootPromptForTool(tool: string): { question: string; subtitle: string } {
-  return {
-    question: `You’re here for ${tool} — what’s the real job behind it?`,
-    subtitle: `There’s already a ${tool} watch list loading under this page. Pick the storyline that sounds closest to you and we’ll line up hosts, playlists, and courses that match that energy — not a generic tour.`,
-  };
-}
-
-function rootPromptDefault(): { question: string; subtitle: string } {
-  return {
-    question: "What actually brought you to Adobe Live?",
-    subtitle: `${greetingWord()} — pick the reason that feels closest to the truth. We’ll skip the filler and send you to live streams, playlists, or courses that line up with how you really work.`,
-  };
-}
-
+/** Section intro — consistent, professional tone (optional tool context). */
 function sectionIntro(tool: string | null): { kicker: string; title: string; body: string } {
   if (tool) {
-    const slug = getToolSlugByName(tool);
     return {
-      kicker: "Your lane",
-      title: `You didn’t land here by accident — you’re chasing ${tool}`,
-      body: `Below this card, ${tool} picks are already assembling for you. Answer once here and we’ll tighten the match to the hosts and formats that fit how you learn — live labs, deep courses, or playlist binges.`,
+      kicker: "Find your content",
+      title: "What are you looking for?",
+      body: `Recommendations for ${tool} are available below this section. Answer one question here and we will suggest matching playlists, courses, and live programming.`,
     };
   }
   return {
     kicker: "Find your content",
-    title: `${greetingWord()} — let’s match Adobe Live to your real goal`,
-    body: "Free live streams, structured courses, shorts, and full tool playlists — all on YouTube. One honest tap below saves you from tab-hopping through stuff that was never meant for you.",
+    title: "What are you looking for?",
+    body: "Answer a few questions and we will direct you to playlists, courses, or live sessions that align with your goal.",
   };
 }
 
 const NODES: Record<string, PathNode> = {
   root: {
     id: "root",
-    question: "What actually brought you to Adobe Live?",
-    subtitle:
-      "Pick the reason that feels closest to the truth — we’ll skip the filler and send you to live streams, playlists, or courses that line up with how you really work.",
+    question: "What brings you to Adobe Live?",
+    subtitle: "Pick the one that fits best — we'll point you in the right direction.",
     options: [
       {
-        label: "I want to master one Adobe app end to end",
+        label: "I want to learn an Adobe tool",
         icon: BookOpen,
         color: "#FA0F00",
         next: "tool",
       },
       {
-        label: "I want a guided course with clear lessons",
+        label: "I want to take a structured course",
         icon: GraduationCap,
         color: "#00C2A8",
         next: "courses",
       },
       {
-        label: "I want the live Tuesday–Friday studio energy",
+        label: "I want to watch live or upcoming shows",
         icon: Radio,
         color: "#FF6B00",
         next: "live",
       },
       {
-        label: "This is my job — I need pro-grade workflows",
+        label: "I work in a creative profession",
         icon: Briefcase,
         color: "#9999FF",
         next: "profession",
       },
       {
-        label: "I’m shipping for TikTok, Reels, Shorts, or feeds",
+        label: "I make content for social media",
         icon: Share2,
         color: "#FF3366",
         next: "social_creator",
       },
       {
-        label: "I’m mid-project and I need this thing solved",
+        label: "I'm working on a specific project",
         icon: Star,
         color: "#FF9A00",
         next: "project_type",
       },
       {
-        label: "I’m on a deadline and I need speed",
+        label: "I need to learn fast — I have a deadline",
         icon: Clock,
         color: "#FA0F00",
         next: "deadline",
       },
       {
-        label: "I want a hit of inspiration, fast",
+        label: "I want quick inspiration or tips",
         icon: Zap,
         color: "#FFD200",
         next: "quick",
       },
       {
-        label: "I’m leveling up one specific skill",
+        label: "I want to improve a specific skill",
         icon: TrendingUp,
         color: "#00C2A8",
         next: "skill_focus",
       },
       {
-        label: "I’m in class — teaching or learning",
+        label: "I'm a student or educator",
         icon: BookOpen,
         color: "#0099FF",
         next: "education",
       },
       {
-        label: "I’m brand new — point me anywhere honest",
+        label: "I'm new — I don't know where to start",
         icon: Sparkles,
         color: "#0099FF",
         next: "new",
       },
       {
-        label: "I want to hang out with people who get it",
+        label: "I want to connect with the community",
         icon: Users,
         color: "#FF6B35",
         next: "community",
@@ -227,6 +202,45 @@ const NODES: Record<string, PathNode> = {
         icon: Briefcase,
         color: "#FFD200",
         next: "profession_freelance",
+      },
+      {
+        label: "Marketing, advertising, or campaign creative",
+        icon: Sparkles,
+        color: "#FF6B00",
+        destinations: [
+          {
+            label: "Generative AI for Branding & Campaign Design",
+            description: "Use Adobe Firefly and Express for on-brand visuals, campaign assets, and rapid iteration.",
+            url: "/courses/izzy-poirier",
+            tag: "Firefly · 8 lessons",
+          },
+          {
+            label: "Adobe Express Playlist",
+            description: "Templates, social graphics, and quick layouts for marketing and communications teams.",
+            url: "/tools/express",
+            tag: "Playlist",
+            toolName: "Express",
+          },
+        ],
+      },
+      {
+        label: "Creative direction, leadership, or strategy",
+        icon: Star,
+        color: "#FFD200",
+        destinations: [
+          {
+            label: "Shows & series catalog",
+            description: "Recurring Adobe Live programming — interviews, news, and industry discussion.",
+            url: "/series",
+            tag: "Series",
+          },
+          {
+            label: "The File New Show",
+            description: "Weekly creative news, tool updates, and designer-focused conversation.",
+            url: "/series/file-new",
+            tag: "Weekly",
+          },
+        ],
       },
       {
         label: "3D artist or product designer",
@@ -1072,6 +1086,34 @@ const NODES: Record<string, PathNode> = {
           },
         ],
       },
+      {
+        label: "Motion graphics, titles, or visual effects",
+        icon: Layers,
+        color: "#E478FF",
+        destinations: [
+          {
+            label: "After Effects Playlist",
+            description: "Motion design, compositing, animation, and effects — the full After Effects library.",
+            url: "/tools/after-effects",
+            tag: "Playlist",
+            toolName: "After Effects",
+          },
+        ],
+      },
+      {
+        label: "Print layout, editorial, or long documents",
+        icon: BookOpen,
+        color: "#FF3366",
+        destinations: [
+          {
+            label: "InDesign Playlist",
+            description: "Layout, typography, print production, and interactive documents.",
+            url: "/tools/indesign",
+            tag: "Playlist",
+            toolName: "InDesign",
+          },
+        ],
+      },
     ],
   },
 
@@ -1132,6 +1174,25 @@ const NODES: Record<string, PathNode> = {
             description: "Core Photoshop skills for professional photo editing, retouching, and compositing.",
             url: "/courses/jesus-ramirez",
             tag: "Photoshop · 8 lessons",
+          },
+        ],
+      },
+      {
+        label: "I coordinate training for a team or organization",
+        icon: Users,
+        color: "#9999FF",
+        destinations: [
+          {
+            label: "All courses",
+            description: "Structured series you can assign, share, or adapt for group learning.",
+            url: "/courses",
+            tag: "Courses",
+          },
+          {
+            label: "Subscribe to the channel",
+            description: "Receive notifications when new educational live sessions are scheduled.",
+            url: "https://www.youtube.com/@AdobeLiveCommunity?sub_confirmation=1",
+            tag: "Subscribe",
           },
         ],
       },
@@ -1333,6 +1394,32 @@ const NODES: Record<string, PathNode> = {
           },
         ],
       },
+      {
+        label: "I want recurring shows and series",
+        icon: Library,
+        color: "#9999FF",
+        destinations: [
+          {
+            label: "Shows & series catalog",
+            description: "Browse every recurring series — schedules, descriptions, and episode counts.",
+            url: "/series",
+            tag: "Series",
+          },
+        ],
+      },
+      {
+        label: "I want to browse the full video library",
+        icon: Library,
+        color: "#00C2A8",
+        destinations: [
+          {
+            label: "Video library",
+            description: "Search and filter every indexed tutorial, replay, and short.",
+            url: "/videos",
+            tag: "Library",
+          },
+        ],
+      },
     ],
   },
 
@@ -1379,6 +1466,12 @@ const NODES: Record<string, PathNode> = {
           },
         ],
       },
+      {
+        label: "Browse tutorials by Adobe application",
+        icon: BookOpen,
+        color: "#FA0F00",
+        next: "tool",
+      },
     ],
   },
 
@@ -1404,6 +1497,19 @@ const NODES: Record<string, PathNode> = {
         icon: Layers,
         color: "#FA0F00",
         next: "course_area_advanced",
+      },
+      {
+        label: "I want to compare all courses first",
+        icon: Library,
+        color: "#00C2A8",
+        destinations: [
+          {
+            label: "All courses",
+            description: "Browse every structured, multi-part course on Adobe Live.",
+            url: "/courses",
+            tag: "Courses",
+          },
+        ],
       },
     ],
   },
@@ -1875,6 +1981,19 @@ const NODES: Record<string, PathNode> = {
           },
         ],
       },
+      {
+        label: "I want the full searchable video library",
+        icon: Library,
+        color: "#31A8FF",
+        destinations: [
+          {
+            label: "Video library",
+            description: "Filter by tool, series, or format to find a specific tutorial or replay.",
+            url: "/videos",
+            tag: "Library",
+          },
+        ],
+      },
     ],
   },
 
@@ -1942,6 +2061,19 @@ const NODES: Record<string, PathNode> = {
             description: "Show up during a live session and share your screen — community participation is part of what makes Adobe Live special.",
             url: "/schedule",
             tag: "Live",
+          },
+        ],
+      },
+      {
+        label: "I want written tutorials and guides",
+        icon: BookOpen,
+        color: "#FF9A00",
+        destinations: [
+          {
+            label: "Blog",
+            description: "Readable articles and guides derived from Adobe Live sessions.",
+            url: "/blog",
+            tag: "Blog",
           },
         ],
       },
@@ -2051,26 +2183,11 @@ export default function PathFinder({ initialTool }: PathFinderProps) {
   const relatedLinks = useMemo(() => destinations ? computeRelatedLinks(destinations) : [], [destinations]);
 
   const intro = sectionIntro(activeTool);
-  const rootCardCopy =
-    currentNodeId === "root" && !destinations
-      ? activeTool
-        ? rootPromptForTool(activeTool)
-        : { question: node.question, subtitle: node.subtitle ?? "" }
-      : null;
-  const displayedQuestion = rootCardCopy?.question ?? node.question;
-  const displayedSubtitle = rootCardCopy?.subtitle ?? node.subtitle;
 
   function handleOption(option: (typeof node.options)[0]) {
-    const questionForLog =
-      currentNodeId === "root" && !destinations
-        ? activeTool
-          ? rootPromptForTool(activeTool).question
-          : node.question
-        : node.question;
-
     const entry: HistoryEntry = {
       nodeId: currentNodeId,
-      question: questionForLog,
+      question: node.question,
       choiceLabel: option.label,
     };
 
@@ -2082,7 +2199,7 @@ export default function PathFinder({ initialTool }: PathFinderProps) {
       logGuideClick({
         session_id: sessionId.current,
         node_id: currentNodeId,
-        question: questionForLog,
+        question: node.question,
         choice_label: option.label,
         destination_url: option.destinations[0]?.url,
         destination_label: option.destinations[0]?.label,
@@ -2106,7 +2223,7 @@ export default function PathFinder({ initialTool }: PathFinderProps) {
       logGuideClick({
         session_id: sessionId.current,
         node_id: currentNodeId,
-        question: questionForLog,
+        question: node.question,
         choice_label: option.label,
       });
     }
@@ -2180,14 +2297,14 @@ export default function PathFinder({ initialTool }: PathFinderProps) {
               {activeTool && currentNodeId === "root" && (
                 <div className="mb-4 rounded-xl border border-white/10 bg-gradient-to-r from-[#FA0F00]/12 via-white/[0.03] to-transparent px-4 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <p className="text-white/55 text-xs leading-relaxed sm:max-w-[min(100%,28rem)]">
-                    <span className="text-white font-semibold">Heads up:</span> we&apos;re already curating{" "}
-                    <span className="text-white/80">{activeTool}</span> for you under this section. If you just want the full channel playlist, skip the quiz.
+                    <span className="text-white font-semibold">Tip:</span> you opened this guide with{" "}
+                    <span className="text-white/80">{activeTool}</span> selected. Related videos appear below. You can also go straight to the organized playlist for that application.
                   </p>
                   <Link
                     href={`/tools/${getToolSlugByName(activeTool)}`}
                     className="inline-flex items-center justify-center gap-1.5 shrink-0 rounded-lg border border-white/15 bg-white/5 px-3.5 py-2 text-xs font-semibold text-white/90 hover:bg-white/10 hover:border-white/25 transition-colors"
                   >
-                    Open your {activeTool} hub
+                    {activeTool} hub
                     <ArrowRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
@@ -2195,11 +2312,11 @@ export default function PathFinder({ initialTool }: PathFinderProps) {
 
               {/* Question card */}
               <div className="rounded-2xl border border-white/10 bg-white/3 p-6 sm:p-8 mb-4">
-                <h3 className="text-white text-xl sm:text-2xl font-bold mb-1">{displayedQuestion}</h3>
-                {displayedSubtitle && (
-                  <p className="text-white/45 text-sm mb-6">{displayedSubtitle}</p>
+                <h3 className="text-white text-xl sm:text-2xl font-bold mb-1">{node.question}</h3>
+                {node.subtitle && (
+                  <p className="text-white/45 text-sm mb-6">{node.subtitle}</p>
                 )}
-                {!displayedSubtitle && <div className="mb-6" />}
+                {!node.subtitle && <div className="mb-6" />}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {node.options.map((opt) => (

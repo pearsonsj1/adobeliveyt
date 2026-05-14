@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { GraduationCap, Play, User } from "lucide-react";
+import Link from "next/link";
 import { CoursePlaylist } from "@/lib/youtube";
+import { instructorProfilePath } from "@/lib/instructors";
 import SectionHeader from "./SectionHeader";
 import { usePreview } from "./PreviewContext";
 
@@ -119,7 +121,13 @@ function CourseCard({ course, index }: { course: CoursePlaylist; index: number }
         </h3>
         <div className="flex items-center gap-1.5 mt-auto pt-2 border-t border-white/8">
           <User className="w-3 h-3 text-white/40 flex-shrink-0" />
-          <span className="text-white/50 text-xs font-medium">{course.instructor}</span>
+          <Link
+            href={instructorProfilePath(course.instructor)}
+            onClick={(e) => e.stopPropagation()}
+            className="text-white/50 text-xs font-medium hover:text-white/85 hover:underline truncate text-left"
+          >
+            {course.instructor}
+          </Link>
         </div>
       </div>
     </>

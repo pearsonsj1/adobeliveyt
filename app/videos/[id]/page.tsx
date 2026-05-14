@@ -6,6 +6,8 @@ import Header from "@/components/adobe-live/Header";
 import SocialFooter from "@/components/adobe-live/SocialFooter";
 import BlogPostBody from "@/components/adobe-live/blog/BlogPostBody";
 import VideoPageTracker from "@/components/adobe-live/VideoPageTracker";
+import { getCourses } from "@/lib/youtube";
+import { inferRelatedCoursesForVideo } from "@/lib/instructors";
 
 export const revalidate = 86400;
 
@@ -127,6 +129,9 @@ export default async function VideoDetailPage({ params }: { params: { id: string
 
   const transcript = await ensureTranscript(video);
 
+  const courses = await getCourses();
+  const relatedCourses = inferRelatedCoursesForVideo(video.tags, courses, 4);
+
   // Use blog_body when available (social/hashtag stripped); fall back to raw description
   const rawBody = (video.blog_body && video.blog_body.length > 60)
     ? video.blog_body
@@ -166,6 +171,23 @@ export default async function VideoDetailPage({ params }: { params: { id: string
           { "@type": "ListItem", position: 3, name: video.title, item: `${SITE_URL}/videos/${video.id}` },
         ],
       },
+      ...(relatedCourses.length > 0
+        ? [
+            {
+              "@type": "ItemList",
+              name: "Related Adobe Live courses",
+              itemListElement: relatedCourses.map((c, i) => ({
+                "@type": "ListItem",
+                position: i + 1,
+                item: {
+                  "@type": "Course",
+                  name: c.title,
+                  url: `${SITE_URL}/courses/${c.id}`,
+                },
+              })),
+            },
+          ]
+        : []),
     ],
   };
 
@@ -324,6 +346,40 @@ export default async function VideoDetailPage({ params }: { params: { id: string
           )}
 
         </div>
+
+        {relatedCourses.length > 0 && (
+          <section className="max-w-4xl mx-auto mt-16 pt-12 border-t border-white/8">
+            <h2 className="text-lg font-black text-white tracking-tight mb-2">Related courses</h2>
+            <p className="text-white/45 text-sm mb-6">
+              Multi-part playlists on the same tools and topics — stay in the learning flow on the site, then watch on
+              YouTube.
+            </p>
+            <ul className="grid sm:grid-cols-2 gap-3">
+              {relatedCourses.map((c) => (
+                <li key={c.id}>
+                  <Link
+                    href={`/courses/${c.id}`}
+                    className="flex gap-3 p-4 rounded-xl border border-white/8 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04] transition-all duration-200"
+                  >
+                    {c.thumbnail ? (
+                      <img
+                        src={c.thumbnail}
+                        alt=""
+                        className="w-24 aspect-video object-cover rounded-lg flex-shrink-0 border border-white/10"
+                      />
+                    ) : null}
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-white line-clamp-2 leading-snug">{c.title}</p>
+                      <p className="text-[11px] text-white/40 mt-1">
+                        {c.instructor} · {c.tool}
+                      </p>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </main>
 
       <SocialFooter />

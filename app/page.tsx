@@ -9,7 +9,6 @@ import CoursesSection from "@/components/adobe-live/CoursesSection";
 import ShortsSection from "@/components/adobe-live/ShortsSection";
 import MobileTemplatesSection from "@/components/adobe-live/MobileTemplatesSection";
 import VideosSection from "@/components/adobe-live/VideosSection";
-import TrendingSection from "@/components/adobe-live/TrendingSection";
 import SocialFooter from "@/components/adobe-live/SocialFooter";
 import StartHereCTA from "@/components/adobe-live/StartHereCTA";
 import type { Metadata } from "next";
@@ -197,12 +196,6 @@ export default async function AdobeLivePage() {
             </div>
           </>
         )}
-
-        <div className="h-px bg-gradient-to-r from-transparent via-white/8 to-transparent" />
-
-        <div className="max-w-7xl mx-auto">
-          <TrendingSection />
-        </div>
 
         {mobileTemplates.length > 0 && (
           <>

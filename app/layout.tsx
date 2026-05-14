@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { PreviewProvider } from '@/components/adobe-live/PreviewContext';
 import PreviewModal from '@/components/adobe-live/PreviewModal';
+import SiteAnalytics from '@/components/adobe-live/SiteAnalytics';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
@@ -219,6 +220,7 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} font-sans antialiased bg-[#070707]`}>
         <PreviewProvider>
+          <SiteAnalytics />
           {children}
           <PreviewModal />
         </PreviewProvider>

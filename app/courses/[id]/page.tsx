@@ -4,6 +4,8 @@ import Link from "next/link";
 import Header from "@/components/adobe-live/Header";
 import SocialFooter from "@/components/adobe-live/SocialFooter";
 import { getCourses, getPlaylistVideos } from "@/lib/youtube";
+import CourseYouTubeOutboundLink from "@/components/adobe-live/CourseYouTubeOutboundLink";
+import { instructorProfilePath } from "@/lib/instructors";
 
 export const revalidate = 86400;
 
@@ -55,7 +57,11 @@ export default async function CourseDetailPage({ params }: { params: { id: strin
         image: course.thumbnail,
         numberOfCredits: videos.length,
         educationalCredentialAwarded: "Certificate of Completion",
-        instructor: { "@type": "Person", name: course.instructor },
+        instructor: {
+          "@type": "Person",
+          name: course.instructor,
+          url: `${SITE_URL}${instructorProfilePath(course.instructor)}`,
+        },
         provider: { "@id": `${SITE_URL}/#organization` },
         isAccessibleForFree: true,
         inLanguage: "en-US",
@@ -107,16 +113,24 @@ export default async function CourseDetailPage({ params }: { params: { id: strin
             </div>
             <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight">{course.title}</h1>
             <p className="text-white/50 text-sm">
-              Taught by <span className="text-white font-semibold">{course.instructor}</span>
+              Taught by{" "}
+              <Link
+                href={instructorProfilePath(course.instructor)}
+                className="text-white font-semibold hover:text-[#FA0F00] transition-colors"
+              >
+                {course.instructor}
+              </Link>
             </p>
-            <a
+            <CourseYouTubeOutboundLink
               href={course.playlistUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+              courseId={course.id}
+              title={course.title}
+              tool={course.tool}
+              tags={course.tags}
               className="inline-flex items-center gap-2 mt-2 px-5 py-2.5 rounded-xl bg-[#FA0F00] hover:bg-[#d40d00] text-white text-sm font-bold transition-colors duration-200 w-fit"
             >
               Watch Full Course ↗
-            </a>
+            </CourseYouTubeOutboundLink>
           </div>
         </div>
 

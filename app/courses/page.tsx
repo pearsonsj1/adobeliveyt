@@ -3,6 +3,7 @@ import Link from "next/link";
 import Header from "@/components/adobe-live/Header";
 import SocialFooter from "@/components/adobe-live/SocialFooter";
 import { getCourses } from "@/lib/youtube";
+import { instructorProfilePath } from "@/lib/instructors";
 
 export const revalidate = 86400;
 
@@ -34,7 +35,11 @@ export default async function CoursesPage() {
       "@type": "Course",
       name: c.title,
       url: `${SITE_URL}/courses/${c.id}`,
-      instructor: { "@type": "Person", name: c.instructor },
+      instructor: {
+        "@type": "Person",
+        name: c.instructor,
+        url: `${SITE_URL}${instructorProfilePath(c.instructor)}`,
+      },
       provider: { "@id": `${SITE_URL}/#organization` },
     })),
   };
@@ -78,7 +83,12 @@ export default async function CoursesPage() {
                 </div>
               )}
               <div className="p-5 flex flex-col gap-2 flex-1">
-                <p className="text-white/40 text-xs font-semibold uppercase tracking-wide">{course.instructor}</p>
+                <Link
+                  href={instructorProfilePath(course.instructor)}
+                  className="text-white/40 text-xs font-semibold uppercase tracking-wide hover:text-white/70 transition-colors"
+                >
+                  {course.instructor}
+                </Link>
                 <h2 className="text-base font-bold text-white group-hover:text-white/90 leading-snug flex-1">{course.title}</h2>
                 <div className="flex items-center justify-between mt-2">
                   <span className="text-white/25 text-xs">{course.videoCount} lessons</span>
