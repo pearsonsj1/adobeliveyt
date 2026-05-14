@@ -77,6 +77,8 @@ The Edge Function **`index-all-videos`** walks the channel uploads playlist and 
    - **`SUPABASE_SERVICE_ROLE_KEY`** — service role key (Dashboard → Settings → API). Never expose this in the client; it is only used server-side in Actions.
 2. The workflow **`.github/workflows/index-all-videos-daily.yml`** runs on a **daily cron** (07:10 UTC by default) and can be run manually via **Actions → Daily index-all-videos → Run workflow**.
 
+If the job fails, open the log: it prints **HTTP status** and the first part of the response body. **Exit code 22** (older runs) meant curl’s **`-f`** flag saw a non-2xx response — typical causes: **`SUPABASE_URL`** typo or trailing junk (must be like `https://xxxx.supabase.co`), **wrong key** (use **`service_role`**, not anon), **`index-all-videos` not deployed** to that project (404), or **`YOUTUBE_API_KEY` missing** in Supabase Edge Function secrets (often **503** in the body). Fix secrets, redeploy the function, then **Re-run workflow**.
+
 Site-side “stale index” triggers (`/videos`, `getSchedule`) only fire if the index is older than **`INDEX_ALL_VIDEOS_STALE_MS`** (48 hours) in `lib/indexing-config.ts`, so they act as a **backup** if the cron misses a day instead of doubling full indexes after every daily cron.
 
 ## First-time Git + GitHub

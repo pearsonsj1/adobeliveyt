@@ -23,12 +23,33 @@ jobs:
             echo "::warning::Set repository secrets SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY to enable daily indexing."
             exit 0
           fi
+          # Trim whitespace and strip trailing slashes so we never get //functions/...
+          BASE_URL="$(printf '%s' "$SUPABASE_URL" | tr -d '\r\n' | sed 's/[[:space:]]*$//; s:/*$::')"
+          case "$BASE_URL" in
+            https://*) ;;
+            *) echo "::error::SUPABASE_URL must start with https:// (got: ${BASE_URL:0:24}…)"; exit 1 ;;
+          esac
+          ENDPOINT="${BASE_URL}/functions/v1/index-all-videos"
+          echo "POST ${ENDPOINT}"
           echo "Triggering index-all-videos…"
-          curl -sS -f -X POST \
-            "${SUPABASE_URL}/functions/v1/index-all-videos" \
+          code="$(curl -sS -o /tmp/index-all-body.txt -w "%{http_code}" -X POST "$ENDPOINT" \
             -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
             -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
             -H "Content-Type: application/json" \
             -d '{}' \
-            --max-time 1200
+            --max-time 1200)"
+          if [ "$code" -lt 200 ] || [ "$code" -ge 300 ]; then
+            echo "::error::index-all-videos returned HTTP $code (curl uses exit 22 with -f for this)."
+            echo "Response body (first 2000 chars):"
+            head -c 2000 /tmp/index-all-body.txt || true
+            echo ""
+            echo "Common fixes: (1) SUPABASE_URL = Project URL from Supabase Dashboard → Settings → API (no trailing slash)."
+            echo "(2) SUPABASE_SERVICE_ROLE_KEY = service_role secret key from the same page (not anon, not JWT from a user)."
+            echo "(3) Deploy the function: supabase functions deploy index-all-videos"
+            echo "(4) Edge Function logs: Dashboard → Edge Functions → index-all-videos → Logs"
+            exit 1
+          fi
+          echo "HTTP $code OK"
+          head -c 500 /tmp/index-all-body.txt || true
+          echo ""
           echo "Done."
