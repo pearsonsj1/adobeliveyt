@@ -5,10 +5,15 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-if ! command -v supabase >/dev/null 2>&1; then
-  echo "Install the Supabase CLI, then run this script again:"
-  echo "  macOS: brew install supabase/tap/supabase"
-  echo "  Other: https://supabase.com/docs/guides/cli/getting-started"
+# Prefer global `supabase`; otherwise use npx (Node.js) — same as docs quickstart.
+if command -v supabase >/dev/null 2>&1; then
+  SUPABASE=(supabase)
+elif command -v npx >/dev/null 2>&1; then
+  SUPABASE=(npx supabase@latest)
+else
+  echo "Install one of:"
+  echo "  - Supabase CLI: brew install supabase/tap/supabase"
+  echo "  - Node.js (for npx): https://nodejs.org — then: npx supabase@latest ..."
   exit 1
 fi
 
@@ -25,7 +30,7 @@ FUNCS=(
 echo "Deploying ${#FUNCS[@]} function(s) to the linked Supabase project..."
 for name in "${FUNCS[@]}"; do
   echo "---- $name ----"
-  supabase functions deploy "$name"
+  "${SUPABASE[@]}" functions deploy "$name"
 done
 
 echo ""
