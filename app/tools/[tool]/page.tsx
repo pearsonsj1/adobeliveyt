@@ -161,7 +161,17 @@ export default async function ToolPage({ params }: { params: { tool: string } })
         </div>
 
         {videos.length === 0 ? (
-          <div className="py-24 text-center text-white/30 text-sm">No videos found yet.</div>
+          <div className="py-20 text-center space-y-4 max-w-md mx-auto">
+            <p className="text-white/40 text-sm leading-relaxed">
+              No tutorials with this tool tag are in your Supabase index yet. After indexing runs, they will appear here.
+            </p>
+            <Link
+              href={`/videos?tool=${encodeURIComponent(meta.tag)}`}
+              className="inline-flex text-[#FA0F00] text-sm font-semibold hover:underline"
+            >
+              Open full video library with this filter →
+            </Link>
+          </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {videos.map((v) => (

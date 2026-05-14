@@ -71,7 +71,7 @@ export default function ToolsPage() {
           {TOOLS.map((tool) => (
             <Link
               key={tool.slug}
-              href={`/videos?tool=${encodeURIComponent(tool.tag)}`}
+              href={`/tools/${tool.slug}`}
               className="group flex flex-col gap-3 p-5 rounded-2xl border border-white/8 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04] transition-all duration-300"
             >
               <div className="flex items-center gap-3">
