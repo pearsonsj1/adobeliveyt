@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, RotateCcw, ExternalLink, Play, Wand as Wand2, Camera, Film, Pen, Image, Layers, Sparkles, BookOpen, Zap, Radio, Users, ChevronRight, Briefcase, Clock, TrendingUp, Palette, Monitor, Share2, Star, Globe, Coffee, Youtube, CalendarDays, GraduationCap as GradCapIcon, Library } from "lucide-react";
+import { getToolSlugByName } from "@/lib/tool-playlists";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
@@ -58,80 +59,121 @@ interface PathNode {
   }[];
 }
 
+/** Time-aware greeting for intro + root (no PII, client-only). */
+function greetingWord(): string {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 12) return "Good morning";
+  if (h >= 12 && h < 17) return "Good afternoon";
+  if (h >= 17 && h < 22) return "Good evening";
+  return "Hey there";
+}
+
+/** Root card copy when we know which app they care about (e.g. ?tool=Illustrator). */
+function rootPromptForTool(tool: string): { question: string; subtitle: string } {
+  return {
+    question: `You’re here for ${tool} — what’s the real job behind it?`,
+    subtitle: `There’s already a ${tool} watch list loading under this page. Pick the storyline that sounds closest to you and we’ll line up hosts, playlists, and courses that match that energy — not a generic tour.`,
+  };
+}
+
+function rootPromptDefault(): { question: string; subtitle: string } {
+  return {
+    question: "What actually brought you to Adobe Live?",
+    subtitle: `${greetingWord()} — pick the reason that feels closest to the truth. We’ll skip the filler and send you to live streams, playlists, or courses that line up with how you really work.`,
+  };
+}
+
+function sectionIntro(tool: string | null): { kicker: string; title: string; body: string } {
+  if (tool) {
+    const slug = getToolSlugByName(tool);
+    return {
+      kicker: "Your lane",
+      title: `You didn’t land here by accident — you’re chasing ${tool}`,
+      body: `Below this card, ${tool} picks are already assembling for you. Answer once here and we’ll tighten the match to the hosts and formats that fit how you learn — live labs, deep courses, or playlist binges.`,
+    };
+  }
+  return {
+    kicker: "Find your content",
+    title: `${greetingWord()} — let’s match Adobe Live to your real goal`,
+    body: "Free live streams, structured courses, shorts, and full tool playlists — all on YouTube. One honest tap below saves you from tab-hopping through stuff that was never meant for you.",
+  };
+}
+
 const NODES: Record<string, PathNode> = {
   root: {
     id: "root",
-    question: "What brings you to Adobe Live?",
-    subtitle: "Pick the one that fits best — we'll point you in the right direction.",
+    question: "What actually brought you to Adobe Live?",
+    subtitle:
+      "Pick the reason that feels closest to the truth — we’ll skip the filler and send you to live streams, playlists, or courses that line up with how you really work.",
     options: [
       {
-        label: "I want to learn an Adobe tool",
+        label: "I want to master one Adobe app end to end",
         icon: BookOpen,
         color: "#FA0F00",
         next: "tool",
       },
       {
-        label: "I want to take a structured course",
+        label: "I want a guided course with clear lessons",
         icon: GraduationCap,
         color: "#00C2A8",
         next: "courses",
       },
       {
-        label: "I want to watch live or upcoming shows",
+        label: "I want the live Tuesday–Friday studio energy",
         icon: Radio,
         color: "#FF6B00",
         next: "live",
       },
       {
-        label: "I work in a creative profession",
+        label: "This is my job — I need pro-grade workflows",
         icon: Briefcase,
         color: "#9999FF",
         next: "profession",
       },
       {
-        label: "I make content for social media",
+        label: "I’m shipping for TikTok, Reels, Shorts, or feeds",
         icon: Share2,
         color: "#FF3366",
         next: "social_creator",
       },
       {
-        label: "I'm working on a specific project",
+        label: "I’m mid-project and I need this thing solved",
         icon: Star,
         color: "#FF9A00",
         next: "project_type",
       },
       {
-        label: "I need to learn fast — I have a deadline",
+        label: "I’m on a deadline and I need speed",
         icon: Clock,
         color: "#FA0F00",
         next: "deadline",
       },
       {
-        label: "I want quick inspiration or tips",
+        label: "I want a hit of inspiration, fast",
         icon: Zap,
         color: "#FFD200",
         next: "quick",
       },
       {
-        label: "I want to improve a specific skill",
+        label: "I’m leveling up one specific skill",
         icon: TrendingUp,
         color: "#00C2A8",
         next: "skill_focus",
       },
       {
-        label: "I'm a student or educator",
+        label: "I’m in class — teaching or learning",
         icon: BookOpen,
         color: "#0099FF",
         next: "education",
       },
       {
-        label: "I'm new — I don't know where to start",
+        label: "I’m brand new — point me anywhere honest",
         icon: Sparkles,
         color: "#0099FF",
         next: "new",
       },
       {
-        label: "I want to connect with the community",
+        label: "I want to hang out with people who get it",
         icon: Users,
         color: "#FF6B35",
         next: "community",
@@ -2008,10 +2050,27 @@ export default function PathFinder({ initialTool }: PathFinderProps) {
   const node = NODES[currentNodeId];
   const relatedLinks = useMemo(() => destinations ? computeRelatedLinks(destinations) : [], [destinations]);
 
+  const intro = sectionIntro(activeTool);
+  const rootCardCopy =
+    currentNodeId === "root" && !destinations
+      ? activeTool
+        ? rootPromptForTool(activeTool)
+        : { question: node.question, subtitle: node.subtitle ?? "" }
+      : null;
+  const displayedQuestion = rootCardCopy?.question ?? node.question;
+  const displayedSubtitle = rootCardCopy?.subtitle ?? node.subtitle;
+
   function handleOption(option: (typeof node.options)[0]) {
+    const questionForLog =
+      currentNodeId === "root" && !destinations
+        ? activeTool
+          ? rootPromptForTool(activeTool).question
+          : node.question
+        : node.question;
+
     const entry: HistoryEntry = {
       nodeId: currentNodeId,
-      question: node.question,
+      question: questionForLog,
       choiceLabel: option.label,
     };
 
@@ -2023,7 +2082,7 @@ export default function PathFinder({ initialTool }: PathFinderProps) {
       logGuideClick({
         session_id: sessionId.current,
         node_id: currentNodeId,
-        question: node.question,
+        question: questionForLog,
         choice_label: option.label,
         destination_url: option.destinations[0]?.url,
         destination_label: option.destinations[0]?.label,
@@ -2047,7 +2106,7 @@ export default function PathFinder({ initialTool }: PathFinderProps) {
       logGuideClick({
         session_id: sessionId.current,
         node_id: currentNodeId,
-        question: node.question,
+        question: questionForLog,
         choice_label: option.label,
       });
     }
@@ -2086,14 +2145,14 @@ export default function PathFinder({ initialTool }: PathFinderProps) {
               className="text-xs font-bold uppercase tracking-[0.15em] bg-clip-text text-transparent"
               style={{ backgroundImage: "linear-gradient(90deg, #FA0F00 0%, #FF6B00 50%, #FFD200 100%)" }}
             >
-              Find Your Content
+              {intro.kicker}
             </span>
           </div>
           <h2 className="text-white text-3xl sm:text-4xl font-black tracking-tight leading-tight">
-            What are you looking for?
+            {intro.title}
           </h2>
           <p className="text-white/50 text-base mt-3 leading-relaxed">
-            Answer a few questions and we&apos;ll send you straight to the right playlist or show.
+            {intro.body}
           </p>
         </motion.div>
 
@@ -2118,13 +2177,29 @@ export default function PathFinder({ initialTool }: PathFinderProps) {
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.25 }}
             >
+              {activeTool && currentNodeId === "root" && (
+                <div className="mb-4 rounded-xl border border-white/10 bg-gradient-to-r from-[#FA0F00]/12 via-white/[0.03] to-transparent px-4 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <p className="text-white/55 text-xs leading-relaxed sm:max-w-[min(100%,28rem)]">
+                    <span className="text-white font-semibold">Heads up:</span> we&apos;re already curating{" "}
+                    <span className="text-white/80">{activeTool}</span> for you under this section. If you just want the full channel playlist, skip the quiz.
+                  </p>
+                  <Link
+                    href={`/tools/${getToolSlugByName(activeTool)}`}
+                    className="inline-flex items-center justify-center gap-1.5 shrink-0 rounded-lg border border-white/15 bg-white/5 px-3.5 py-2 text-xs font-semibold text-white/90 hover:bg-white/10 hover:border-white/25 transition-colors"
+                  >
+                    Open your {activeTool} hub
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              )}
+
               {/* Question card */}
               <div className="rounded-2xl border border-white/10 bg-white/3 p-6 sm:p-8 mb-4">
-                <h3 className="text-white text-xl sm:text-2xl font-bold mb-1">{node.question}</h3>
-                {node.subtitle && (
-                  <p className="text-white/45 text-sm mb-6">{node.subtitle}</p>
+                <h3 className="text-white text-xl sm:text-2xl font-bold mb-1">{displayedQuestion}</h3>
+                {displayedSubtitle && (
+                  <p className="text-white/45 text-sm mb-6">{displayedSubtitle}</p>
                 )}
-                {!node.subtitle && <div className="mb-6" />}
+                {!displayedSubtitle && <div className="mb-6" />}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {node.options.map((opt) => (

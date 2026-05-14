@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { INDEX_ALL_VIDEOS_STALE_MS } from "@/lib/indexing-config";
 import { fetchAllVideoIndexRows } from "@/lib/video-index-pagination";
+import { TOOL_PLAYLIST_CONFIG, indexTagFiltersForToolSlug, youtubePlaylistUrl } from "@/lib/tool-playlists";
 
 export interface LiveStream {
   id: string;
@@ -28,6 +29,8 @@ export interface VideoItem {
 
 export interface ToolPlaylist {
   tool: string;
+  /** Matches `/tools/[slug]` for this tool’s official channel playlist. */
+  slug: string;
   playlistId: string;
   playlistUrl: string;
   videoCount: number;
@@ -462,7 +465,7 @@ const TOOL_KEYWORDS: [string, string][] = [
   ["InDesign", "indesign"],
   ["Fresco", "fresco"],
   ["Dimension", "dimension"],
-  ["Substance", "substance"],
+  ["Substance 3D", "substance"],
   ["Acrobat", "acrobat"],
 ];
 
@@ -567,19 +570,6 @@ const MOCK_SCHEDULE: ScheduleItem[] = [
   { id: "35jRC_Yh1FE", title: "On the Spot with Magdiel Lopez", description: "Live graphic design challenge series — Magdiel Lopez creates bold visual concepts in real time from audience suggestions.", scheduledTime: new Date(Date.now() + 28 * 3600000).toISOString(), videoUrl: "https://www.youtube.com/watch?v=35jRC_Yh1FE", tools: ["Illustrator"], host: "Adobe Live Community", thumbnail: "https://i.ytimg.com/vi/35jRC_Yh1FE/hqdefault.jpg" },
   { id: "I-rtmS9Xxa0", title: "Feature Fridays", description: "Deep dives into specific Adobe features and tools with expert guests.", scheduledTime: new Date(Date.now() + 48 * 3600000).toISOString(), videoUrl: "https://www.youtube.com/watch?v=I-rtmS9Xxa0", tools: [], host: "Adobe Live Community", thumbnail: "https://i.ytimg.com/vi/I-rtmS9Xxa0/hqdefault.jpg" },
   { id: "uAWRoCSG7Yg", title: "The Cinema Collective", description: "Filmmakers, editors, and post-production professionals covering the craft and industry of cinema.", scheduledTime: new Date(Date.now() + 50 * 3600000).toISOString(), videoUrl: "https://www.youtube.com/watch?v=uAWRoCSG7Yg", tools: [], host: "Adobe Live Community", thumbnail: "https://i.ytimg.com/vi/uAWRoCSG7Yg/hqdefault.jpg" },
-];
-
-const MOCK_TOOL_PLAYLISTS: ToolPlaylist[] = [
-  { tool: "Photoshop",     playlistId: "PLMMOwZoEbhuwaTuOc60tRTsokYGTdEG39", playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuwaTuOc60tRTsokYGTdEG39", videoCount: 142, thumbnail: "https://i.ytimg.com/vi/GcMyg5Zzdfg/hqdefault.jpg" },
-  { tool: "Illustrator",   playlistId: "PLMMOwZoEbhuz4RamFC4qMOUXpHWZgyS3E", playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuz4RamFC4qMOUXpHWZgyS3E", videoCount: 98,  thumbnail: "https://i.ytimg.com/vi/35jRC_Yh1FE/hqdefault.jpg" },
-  { tool: "After Effects", playlistId: "PLMMOwZoEbhuyX2RL5LE8pThYxcwHjF8Mv", playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuyX2RL5LE8pThYxcwHjF8Mv", videoCount: 87,  thumbnail: "https://i.ytimg.com/vi/LR52uemd_H8/hqdefault.jpg" },
-  { tool: "Premiere",  playlistId: "PLMMOwZoEbhuw4NszLQhE9uX_IdD5rpWA0", playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuw4NszLQhE9uX_IdD5rpWA0", videoCount: 76,  thumbnail: "https://i.ytimg.com/vi/uAWRoCSG7Yg/hqdefault.jpg" },
-  { tool: "Lightroom",     playlistId: "PLMMOwZoEbhuwMImBhitwZ6PhRQak0615K", playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuwMImBhitwZ6PhRQak0615K", videoCount: 64,  thumbnail: "https://i.ytimg.com/vi/jQsB1P6l_gM/hqdefault.jpg" },
-  { tool: "Firefly",       playlistId: "PLMMOwZoEbhuxPY2JftdLPXxIIcO7QRBu_", playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuxPY2JftdLPXxIIcO7QRBu_", videoCount: 43,  thumbnail: "https://i.ytimg.com/vi/I-rtmS9Xxa0/hqdefault.jpg" },
-  { tool: "Express",       playlistId: "PLMMOwZoEbhuwZ1J8GmHW19P8pylsT7Z2_", playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuwZ1J8GmHW19P8pylsT7Z2_", videoCount: 38,  thumbnail: "https://i.ytimg.com/vi/A_Zvrp0DurE/hqdefault.jpg" },
-  { tool: "InDesign",      playlistId: "PLMMOwZoEbhuzC6Mqvwovl8Y8ZeF6mXWtk", playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuzC6Mqvwovl8Y8ZeF6mXWtk", videoCount: 55,  thumbnail: "https://i.ytimg.com/vi/YegPJJm8o-I/hqdefault.jpg" },
-  { tool: "Fresco",        playlistId: "PLMMOwZoEbhuwBffb0yYDkImol577KtqWI", playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuwBffb0yYDkImol577KtqWI", videoCount: 24,  thumbnail: "https://i.ytimg.com/vi/KYigRBUyzxQ/hqdefault.jpg" },
-  { tool: "Substance 3D",  playlistId: "PLMMOwZoEbhuwXLF-GsAbSTcDwbJBsa_WZ", playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuwXLF-GsAbSTcDwbJBsa_WZ", videoCount: 31,  thumbnail: "https://i.ytimg.com/vi/KYigRBUyzxQ/hqdefault.jpg" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -872,24 +862,17 @@ export async function getPopularVideos(): Promise<VideoItem[]> {
   }, VIDEO_CACHE_TTL_MS);
 }
 
-// Real playlist IDs from @AdobeLiveCommunity channel
-const TOOL_PLAYLIST_IDS: { tool: string; id: string }[] = [
-  { tool: "Photoshop",     id: "PLMMOwZoEbhuwaTuOc60tRTsokYGTdEG39" },
-  { tool: "Illustrator",   id: "PLMMOwZoEbhuz4RamFC4qMOUXpHWZgyS3E" },
-  { tool: "After Effects", id: "PLMMOwZoEbhuyX2RL5LE8pThYxcwHjF8Mv" },
-  { tool: "Premiere",  id: "PLMMOwZoEbhuw4NszLQhE9uX_IdD5rpWA0" },
-  { tool: "Lightroom",     id: "PLMMOwZoEbhuwMImBhitwZ6PhRQak0615K" },
-  { tool: "Firefly",       id: "PLMMOwZoEbhuxPY2JftdLPXxIIcO7QRBu_" },
-  { tool: "Express",       id: "PLMMOwZoEbhuwZ1J8GmHW19P8pylsT7Z2_" },
-  { tool: "InDesign",      id: "PLMMOwZoEbhuzC6Mqvwovl8Y8ZeF6mXWtk" },
-  { tool: "Fresco",        id: "PLMMOwZoEbhuwBffb0yYDkImol577KtqWI" },
-  { tool: "Substance 3D",  id: "PLMMOwZoEbhuwXLF-GsAbSTcDwbJBsa_WZ" },
-];
+const TOOL_PLAYLIST_IDS: { tool: string; id: string; slug: string }[] = TOOL_PLAYLIST_CONFIG.map((c) => ({
+  tool: c.tool,
+  id: c.playlistId,
+  slug: c.slug,
+}));
 
-const FALLBACK_TOOL_PLAYLISTS: ToolPlaylist[] = TOOL_PLAYLIST_IDS.map(({ tool, id }) => ({
-  tool,
-  playlistId: id,
-  playlistUrl: `https://www.youtube.com/playlist?list=${id}`,
+const FALLBACK_TOOL_PLAYLISTS: ToolPlaylist[] = TOOL_PLAYLIST_CONFIG.map((c) => ({
+  tool: c.tool,
+  slug: c.slug,
+  playlistId: c.playlistId,
+  playlistUrl: youtubePlaylistUrl(c.playlistId),
   videoCount: 0,
   thumbnail: "",
 }));
@@ -904,15 +887,16 @@ export async function getToolPlaylists(): Promise<ToolPlaylist[]> {
       const byId = new Map<string, YTPlaylistItem>();
       for (const item of data.items) byId.set(item.id, item);
 
-      return TOOL_PLAYLIST_IDS.map(({ tool, id }) => {
+      return TOOL_PLAYLIST_IDS.map(({ tool, id, slug }) => {
         const item = byId.get(id);
         if (!item) {
           return FALLBACK_TOOL_PLAYLISTS.find((m) => m.tool === tool) ?? FALLBACK_TOOL_PLAYLISTS[0];
         }
         return {
           tool,
+          slug,
           playlistId: id,
-          playlistUrl: `https://www.youtube.com/playlist?list=${id}`,
+          playlistUrl: youtubePlaylistUrl(id),
           videoCount: item.contentDetails.itemCount,
           thumbnail: bestThumb(item.snippet.thumbnails),
         };
@@ -1411,13 +1395,15 @@ async function getPlaylistVideosFromIndex(playlistId: string): Promise<PlaylistV
     }
 
     // 2) Tool playlist cards: same tag membership as /tools/[slug] (often populated when playlist_ids is not).
-    const toolName = TOOL_PLAYLIST_IDS.find((p) => p.id === playlistId)?.tool;
-    if (toolName) {
-      const tagRows = await fetchAllVideoIndexRows((rangeFrom, rangeTo) =>
-        baseOrdered().contains("tags", [toolName]).range(rangeFrom, rangeTo),
-      );
-      if (tagRows.length) {
-        return mapVideoIndexRowsToPlaylistItems(tagRows);
+    const toolCfg = TOOL_PLAYLIST_CONFIG.find((c) => c.playlistId === playlistId);
+    if (toolCfg) {
+      for (const t of indexTagFiltersForToolSlug(toolCfg.slug, toolCfg.tool)) {
+        const tagRows = await fetchAllVideoIndexRows((rangeFrom, rangeTo) =>
+          baseOrdered().contains("tags", [t]).range(rangeFrom, rangeTo),
+        );
+        if (tagRows.length) {
+          return mapVideoIndexRowsToPlaylistItems(tagRows);
+        }
       }
     }
 

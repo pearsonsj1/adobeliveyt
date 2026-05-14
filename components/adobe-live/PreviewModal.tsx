@@ -6,13 +6,7 @@ import { X, ExternalLink, Play, Clock, Eye, Calendar, Layers, User, GraduationCa
 import Link from "next/link";
 import { usePreview } from "./PreviewContext";
 import { formatViewCount, formatRelativeDate, type PlaylistVideoItem } from "@/lib/youtube";
-
-// Map tool name to internal /tools/[slug] path
-const TOOL_SLUG: Record<string, string> = {
-  Photoshop: "photoshop", Illustrator: "illustrator", "After Effects": "after-effects",
-  Premiere: "premiere", Lightroom: "lightroom", Firefly: "firefly",
-  Express: "express", InDesign: "indesign", Fresco: "fresco", "Substance 3D": "substance-3d",
-};
+import { getToolSlugByName } from "@/lib/tool-playlists";
 
 export default function PreviewModal() {
   const { item, close } = usePreview();
@@ -368,7 +362,7 @@ function PlaylistModal() {
           {/* Full course/playlist CTA — visible below description on desktop */}
           <div className="hidden lg:block p-4 sm:p-5 mt-auto">
             <Link
-              href={item.instructor ? `/courses/${item.playlistId}` : item.tool ? `/tools/${TOOL_SLUG[item.tool] ?? item.tool.toLowerCase()}` : `/series/${item.playlistId}`}
+              href={item.instructor ? `/courses/${item.playlistId}` : item.tool ? `/tools/${item.toolSlug ?? getToolSlugByName(item.tool)}` : `/series/${item.playlistId}`}
               onClick={close}
               className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-white/15 hover:border-white/30 text-white/70 hover:text-white font-medium text-sm transition-all duration-200"
             >
@@ -431,7 +425,7 @@ function PlaylistModal() {
       {/* Mobile CTA */}
       <div className="lg:hidden p-4 border-t border-white/8 flex-shrink-0">
         <Link
-          href={item.instructor ? `/courses/${item.playlistId}` : item.tool ? `/tools/${TOOL_SLUG[item.tool] ?? item.tool.toLowerCase()}` : `/series/${item.playlistId}`}
+          href={item.instructor ? `/courses/${item.playlistId}` : item.tool ? `/tools/${item.toolSlug ?? getToolSlugByName(item.tool)}` : `/series/${item.playlistId}`}
           onClick={close}
           className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl border border-white/15 hover:border-white/30 text-white/70 hover:text-white font-medium text-sm transition-all duration-200"
         >

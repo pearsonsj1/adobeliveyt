@@ -3,20 +3,8 @@
 import { motion } from "framer-motion";
 import { Play } from "lucide-react";
 import { ToolPlaylist } from "@/lib/youtube";
+import { toolAbbreviation } from "@/lib/tool-playlists";
 import { usePreview } from "./PreviewContext";
-
-const TOOL_SLUG: Record<string, string> = {
-  Photoshop: "photoshop",
-  Illustrator: "illustrator",
-  "After Effects": "after-effects",
-  "Premiere": "premiere",
-  Lightroom: "lightroom",
-  Firefly: "firefly",
-  Express: "express",
-  InDesign: "indesign",
-  Fresco: "fresco",
-  "Substance 3D": "substance-3d",
-};
 
 const TOOL_GRADIENTS: Record<string, string> = {
   Photoshop: "from-[#31A8FF] to-[#001E36]",
@@ -31,19 +19,6 @@ const TOOL_GRADIENTS: Record<string, string> = {
   "Substance 3D": "from-[#FF6C37] to-[#2D1200]",
 };
 
-const TOOL_ICONS: Record<string, string> = {
-  Photoshop: "Ps",
-  Illustrator: "Ai",
-  "After Effects": "Ae",
-  "Premiere": "Pr",
-  Lightroom: "Lr",
-  Firefly: "Fi",
-  Express: "Ex",
-  InDesign: "Id",
-  Fresco: "Fr",
-  "Substance 3D": "S",
-};
-
 interface ToolCardProps {
   playlist: ToolPlaylist;
   index: number;
@@ -52,8 +27,7 @@ interface ToolCardProps {
 export default function ToolCard({ playlist, index }: ToolCardProps) {
   const { open } = usePreview();
   const gradient = TOOL_GRADIENTS[playlist.tool] || "from-gray-700 to-gray-900";
-  const icon = TOOL_ICONS[playlist.tool] || playlist.tool.slice(0, 2);
-  const slug = TOOL_SLUG[playlist.tool] ?? playlist.tool.toLowerCase().replace(/\s+/g, "-");
+  const icon = toolAbbreviation(playlist.tool);
 
   const cardContent = (
     <>
@@ -105,6 +79,7 @@ export default function ToolCard({ playlist, index }: ToolCardProps) {
         videoUrl: playlist.playlistUrl,
         videoCount: playlist.videoCount,
         tool: playlist.tool,
+        toolSlug: playlist.slug,
         playlistId: playlist.playlistId,
       })}
       {...sharedMotionProps}

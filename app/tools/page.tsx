@@ -2,10 +2,20 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Header from "@/components/adobe-live/Header";
 import SocialFooter from "@/components/adobe-live/SocialFooter";
+import { TOOL_PLAYLIST_CONFIG, youtubePlaylistUrl } from "@/lib/tool-playlists";
 
 export const revalidate = 86400;
 
 const SITE_URL = "https://adobelive.com";
+
+const TOOLS = TOOL_PLAYLIST_CONFIG.map((t) => ({
+  slug: t.slug,
+  name: t.name,
+  abbr: t.abbr,
+  color: t.color,
+  desc: t.desc,
+  playlistUrl: youtubePlaylistUrl(t.playlistId),
+}));
 
 export const metadata: Metadata = {
   title: "Browse by Adobe Tool — Photoshop, Illustrator, Premiere & More",
@@ -19,19 +29,6 @@ export const metadata: Metadata = {
     images: [{ url: `${SITE_URL}/og-image.jpg`, width: 1200, height: 630, alt: "Browse Adobe Live by Tool" }],
   },
 };
-
-const TOOLS = [
-  { slug: "photoshop",    name: "Photoshop",    tag: "Photoshop",    color: "#31A8FF", desc: "Photo editing, compositing, retouching, and AI-powered design." },
-  { slug: "illustrator",  name: "Illustrator",  tag: "Illustrator",  color: "#FF9A00", desc: "Vector illustration, logo design, and typography." },
-  { slug: "premiere",     name: "Premiere Pro", tag: "Premiere",     color: "#9999FF", desc: "Video editing, color grading, and post-production workflows." },
-  { slug: "after-effects",name: "After Effects",tag: "After Effects",color: "#9999FF", desc: "Motion graphics, visual effects, and animation." },
-  { slug: "lightroom",    name: "Lightroom",    tag: "Lightroom",    color: "#31A8FF", desc: "Photo organization, editing, and color correction." },
-  { slug: "firefly",      name: "Firefly",      tag: "Firefly",      color: "#FA0F00", desc: "Generative AI for images, vectors, and creative ideation." },
-  { slug: "express",      name: "Adobe Express",tag: "Express",      color: "#FF9A00", desc: "Quick design for social media, flyers, and templates." },
-  { slug: "indesign",     name: "InDesign",     tag: "InDesign",     color: "#FF3366", desc: "Layout design for print, editorial, and digital publishing." },
-  { slug: "fresco",       name: "Fresco",       tag: "Fresco",       color: "#00C2A8", desc: "Digital painting and illustration on iPad and desktop." },
-  { slug: "substance-3d", name: "Substance 3D", tag: "Substance 3D", color: "#FF6C37", desc: "3D texturing, materials, and rendering for designers." },
-];
 
 const jsonLd = {
   "@context": "https://schema.org",
@@ -69,22 +66,45 @@ export default function ToolsPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {TOOLS.map((tool) => (
-            <Link
+            <div
               key={tool.slug}
-              href={`/tools/${tool.slug}`}
-              className="group flex flex-col gap-3 p-5 rounded-2xl border border-white/8 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04] transition-all duration-300"
+              className="group flex flex-col rounded-2xl border border-white/8 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04] transition-all duration-300 overflow-hidden"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg flex-shrink-0" style={{ background: `${tool.color}22`, border: `1px solid ${tool.color}44` }}>
-                  <div className="w-full h-full rounded-lg flex items-center justify-center">
-                    <div className="w-3 h-3 rounded-sm" style={{ background: tool.color }} />
+              <Link
+                href={`/tools/${tool.slug}`}
+                className="flex flex-col gap-3 p-5 flex-1 text-left"
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-9 h-9 rounded-lg flex-shrink-0 flex items-center justify-center border"
+                    style={{
+                      background: `${tool.color}18`,
+                      borderColor: `${tool.color}44`,
+                    }}
+                    aria-hidden
+                  >
+                    <span
+                      className="text-[11px] font-black tracking-tight leading-none"
+                      style={{ color: tool.color }}
+                    >
+                      {tool.abbr}
+                    </span>
                   </div>
+                  <h2 className="font-bold text-white text-sm group-hover:text-white/90">{tool.name}</h2>
                 </div>
-                <h2 className="font-bold text-white text-sm group-hover:text-white/90">{tool.name}</h2>
-              </div>
-              <p className="text-white/40 text-xs leading-relaxed">{tool.desc}</p>
-              <span className="text-xs font-semibold mt-auto" style={{ color: tool.color }}>Browse tutorials →</span>
-            </Link>
+                <p className="text-white/40 text-xs leading-relaxed">{tool.desc}</p>
+                <span className="text-xs font-semibold mt-auto" style={{ color: tool.color }}>Browse tutorials →</span>
+              </Link>
+              <a
+                href={tool.playlistUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-5 py-3 text-xs font-semibold border-t border-white/8 text-white/50 hover:text-white/80 hover:bg-white/[0.03] transition-colors"
+                style={{ borderTopColor: `${tool.color}22` }}
+              >
+                Official YouTube playlist →
+              </a>
+            </div>
           ))}
         </div>
       </main>

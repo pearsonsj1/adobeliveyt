@@ -6,6 +6,12 @@ import Header from "@/components/adobe-live/Header";
 import SocialFooter from "@/components/adobe-live/SocialFooter";
 import { fetchAllVideoIndexRows } from "@/lib/video-index-pagination";
 import { isShortFormatVideo } from "@/lib/youtube";
+import {
+  getToolPlaylistConfigBySlug,
+  indexTagFiltersForToolSlug,
+  TOOL_PLAYLIST_CONFIG,
+  youtubePlaylistUrl,
+} from "@/lib/tool-playlists";
 
 export const revalidate = 86400;
 
@@ -38,7 +44,7 @@ interface Video {
 }
 
 export async function generateStaticParams() {
-  return Object.keys(TOOL_META).map((tool) => ({ tool }));
+  return TOOL_PLAYLIST_CONFIG.map((c) => ({ tool: c.slug }));
 }
 
 export async function generateMetadata({ params }: { params: { tool: string } }): Promise<Metadata> {
@@ -62,9 +68,22 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 }
 
+function mergeVideoRowsById<T extends { id: string; published_at: string | null }>(rows: T[]): T[] {
+  const byId = new Map<string, T>();
+  for (const r of rows) {
+    if (!byId.has(r.id)) byId.set(r.id, r);
+  }
+  return Array.from(byId.values()).sort(
+    (a, b) => new Date(b.published_at ?? 0).getTime() - new Date(a.published_at ?? 0).getTime(),
+  );
+}
+
 export default async function ToolPage({ params }: { params: { tool: string } }) {
   const meta = TOOL_META[params.tool];
   if (!meta) notFound();
+
+  const playlistCfg = getToolPlaylistConfigBySlug(params.tool);
+  const officialPlaylistUrl = playlistCfg ? youtubePlaylistUrl(playlistCfg.playlistId) : null;
 
   type VideoRow = {
     id: string;
@@ -76,19 +95,43 @@ export default async function ToolPage({ params }: { params: { tool: string } })
     tags: string[] | null;
     description: string | null;
   };
+  const selectCols = "id, title, thumbnail_url, video_url, published_at, duration, tags, description";
+  const streamOr = "stream_status.is.null,stream_status.neq.upcoming";
+
   let rows: VideoRow[] = [];
   if (SUPABASE_URL && SUPABASE_ANON_KEY) {
     const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    rows = await fetchAllVideoIndexRows<VideoRow>((rangeFrom, rangeTo) =>
-      supabase
-        .from("video_index")
-        .select("id, title, thumbnail_url, video_url, published_at, duration, tags, description")
-        .eq("is_live_stream", false)
-        .or("stream_status.is.null,stream_status.neq.upcoming")
-        .contains("tags", [meta.tag])
-        .order("published_at", { ascending: false })
-        .range(rangeFrom, rangeTo),
-    );
+    const combined: VideoRow[] = [];
+
+    for (const tag of indexTagFiltersForToolSlug(params.tool, meta.tag)) {
+      const part = await fetchAllVideoIndexRows<VideoRow>((rangeFrom, rangeTo) =>
+        supabase
+          .from("video_index")
+          .select(selectCols)
+          .eq("is_live_stream", false)
+          .or(streamOr)
+          .contains("tags", [tag])
+          .order("published_at", { ascending: false })
+          .range(rangeFrom, rangeTo),
+      );
+      combined.push(...part);
+    }
+
+    if (playlistCfg) {
+      const byPlaylist = await fetchAllVideoIndexRows<VideoRow>((rangeFrom, rangeTo) =>
+        supabase
+          .from("video_index")
+          .select(selectCols)
+          .eq("is_live_stream", false)
+          .or(streamOr)
+          .contains("playlist_ids", [playlistCfg.playlistId])
+          .order("published_at", { ascending: false })
+          .range(rangeFrom, rangeTo),
+      );
+      combined.push(...byPlaylist);
+    }
+
+    rows = mergeVideoRowsById(combined);
   }
 
   const videos: Video[] = rows
@@ -163,13 +206,29 @@ export default async function ToolPage({ params }: { params: { tool: string } })
           </div>
           <h1 className="text-4xl sm:text-5xl font-black text-white tracking-tight mb-3">{meta.name} Tutorials</h1>
           <p className="text-white/50 text-base max-w-xl">{meta.desc}</p>
+          {officialPlaylistUrl && (
+            <a
+              href={officialPlaylistUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex mt-3 text-sm font-semibold hover:underline"
+              style={{ color: meta.color }}
+            >
+              Official {meta.name} playlist on YouTube →
+            </a>
+          )}
           <p className="text-white/30 text-sm mt-2">{videos.length} free video{videos.length !== 1 ? "s" : ""}</p>
         </div>
 
         {videos.length === 0 ? (
           <div className="py-20 text-center space-y-4 max-w-md mx-auto">
             <p className="text-white/40 text-sm leading-relaxed">
-              No tutorials with this tool tag are in your Supabase index yet. After indexing runs, they will appear here.
+              No videos for this tool are in your Supabase index yet. After{" "}
+              <code className="text-white/55">index-all-videos</code> runs (and optionally{" "}
+              <code className="text-white/55">backfill-playlist-membership</code> so playlist membership is stored), videos
+              tagged{" "}
+              <span className="text-white/55">{indexTagFiltersForToolSlug(params.tool, meta.tag).join(" · ")}</span>
+              {" "}or in the official YouTube playlist for this tool will appear here.
             </p>
             <Link
               href={`/videos?tool=${encodeURIComponent(meta.tag)}`}

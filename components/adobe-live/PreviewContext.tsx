@@ -23,6 +23,8 @@ export interface PreviewItem {
   instructor?: string;
   // playlist-specific: if set, modal will fetch and show playlist videos
   playlistId?: string;
+  /** When set with `tool`, links to `/tools/[slug]` without duplicating slug maps. */
+  toolSlug?: string;
 }
 
 interface PreviewContextValue {

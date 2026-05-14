@@ -7,7 +7,7 @@ import { Youtube, Instagram, Linkedin } from "lucide-react";
 const SOCIALS = [
   {
     label: "YouTube",
-    href: "https://www.youtube.com/@adobelive?utm_source=adobelive.com&utm_medium=website&utm_campaign=footer-social",
+    href: "https://www.youtube.com/@AdobeLiveCommunity",
     icon: Youtube,
     svgPath: null,
   },

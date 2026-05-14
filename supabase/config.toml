@@ -16,4 +16,4 @@ max_rows = 1000
 port = 54322
 shadow_port = 54320
 # Match hosted Postgres if you use `supabase db` commands (Dashboard → Database → version).
-major_version = 15
+major_version = 17

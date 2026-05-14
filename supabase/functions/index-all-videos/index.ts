@@ -55,7 +55,7 @@ const TOOL_KEYWORDS: [string, string][] = [
   ["Express", "adobe express"],
   ["InDesign", "indesign"],
   ["Fresco", "fresco"],
-  ["Substance", "substance"],
+  ["Substance 3D", "substance"],
   ["Acrobat", "acrobat"],
 ];
 
