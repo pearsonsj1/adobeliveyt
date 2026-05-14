@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Header from "@/components/adobe-live/Header";
 import SocialFooter from "@/components/adobe-live/SocialFooter";
+import { isShortFormatVideo } from "@/lib/youtube";
 
 export const revalidate = 3600;
 
@@ -87,16 +88,18 @@ export default async function ToolPage({ params }: { params: { tool: string } })
     rows = data ?? [];
   }
 
-  const videos: Video[] = rows.map((v) => ({
-    id: v.id,
-    title: v.title,
-    thumbnail_url: v.thumbnail_url,
-    video_url: v.video_url,
-    published_at: v.published_at,
-    duration: v.duration ?? "",
-    tags: v.tags ?? [],
-    description: v.description ?? "",
-  }));
+  const videos: Video[] = rows
+    .map((v) => ({
+      id: v.id,
+      title: v.title,
+      thumbnail_url: v.thumbnail_url,
+      video_url: v.video_url,
+      published_at: v.published_at,
+      duration: v.duration ?? "",
+      tags: v.tags ?? [],
+      description: v.description ?? "",
+    }))
+    .filter((v) => !isShortFormatVideo({ duration: v.duration, videoUrl: v.video_url }));
 
   const jsonLd = {
     "@context": "https://schema.org",
