@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, ExternalLink, Play, Clock, Eye, Calendar, Layers, User, GraduationCap, ChevronRight, Loader as Loader2, Radio } from "lucide-react";
 import Link from "next/link";
 import { usePreview, type PreviewItem } from "./PreviewContext";
+import { formatViewCount, formatRelativeDate, type PlaylistVideoItem } from "@/lib/youtube";
+import { getToolSlugByName } from "@/lib/tool-playlists";
 
 function playlistDetailHref(item: PreviewItem): string {
   if (item.instructor) {

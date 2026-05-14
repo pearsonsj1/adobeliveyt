@@ -1391,8 +1391,8 @@ function mapVideoIndexRowsToPlaylistItems(
     thumbnail_url: string;
     video_url: string;
     published_at: string | null;
-    duration: string;
-    description: string;
+    duration: string | null;
+    description: string | null;
   }>,
 ): PlaylistVideoItem[] {
   return rows.map((r, i): PlaylistVideoItem => ({
