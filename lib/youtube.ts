@@ -58,6 +58,11 @@ export interface RecurringSeries {
   videoCount: number;
   thumbnail: string;
   cadence: string;
+  /**
+   * Extra `video_index` title/description ILIKE fragments when `playlist_ids` is missing
+   * and episode titles omit the canonical name (e.g. “This Week in Design” for File New).
+   */
+  titleMatchHints?: string[];
 }
 
 export interface CoursePlaylist {
@@ -279,7 +284,14 @@ async function proxyFetch(endpoint: string, extra?: Record<string, string>): Pro
 // stale cached data is served rather than discarding it.
 // Pass emptyIsValid=true for data where an empty array is a legitimate live result
 // (e.g. live streams) so stale data doesn't linger after the event ends.
-async function withCache<T>(key: string, fn: () => Promise<T>, ttlMs = CACHE_TTL_MS, emptyIsValid = false): Promise<T> {
+// Pass persistEmpty=false to avoid caching empty playlist fetches (index backfill would stay invisible until TTL).
+async function withCache<T>(
+  key: string,
+  fn: () => Promise<T>,
+  ttlMs = CACHE_TTL_MS,
+  emptyIsValid = false,
+  persistEmpty = true,
+): Promise<T> {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return fn();
 
   const headers = dbHeaders();
@@ -314,14 +326,16 @@ async function withCache<T>(key: string, fn: () => Promise<T>, ttlMs = CACHE_TTL
     (Array.isArray(fresh) && fresh.length === 0);
   if (isEmpty && staleData !== undefined && !emptyIsValid) return staleData;
 
-  try {
-    await fetch(`${SUPABASE_URL}/rest/v1/youtube_cache`, {
-      method: "POST",
-      headers: { ...headers, "Prefer": "resolution=merge-duplicates" },
-      body: JSON.stringify({ key, data: fresh, cached_at: new Date().toISOString(), stale_ok: true }),
-      cache: "no-store",
-    });
-  } catch { /* best-effort */ }
+  if (!(isEmpty && !persistEmpty)) {
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/youtube_cache`, {
+        method: "POST",
+        headers: { ...headers, "Prefer": "resolution=merge-duplicates" },
+        body: JSON.stringify({ key, data: fresh, cached_at: new Date().toISOString(), stale_ok: true }),
+        cache: "no-store",
+      });
+    } catch { /* best-effort */ }
+  }
 
   return fresh;
 }
@@ -918,6 +932,7 @@ const RECURRING_SERIES: RecurringSeries[] = [
     videoCount: 101,
     thumbnail: "https://i.ytimg.com/vi/GcMyg5Zzdfg/hqdefault.jpg",
     cadence: "Weekly",
+    titleMatchHints: ["This Week in Design", "File New"],
   },
   {
     id: "office-hours",
@@ -1334,6 +1349,31 @@ function mapVideoIndexRowsToPlaylistItems(
   }));
 }
 
+type VideoIndexPlaylistRow = {
+  id: string;
+  title: string;
+  thumbnail_url: string;
+  video_url: string;
+  published_at: string | null;
+  duration: string | null;
+  description: string | null;
+  stream_status: string | null;
+};
+
+function indexRowIsPublishedReplay(r: Pick<VideoIndexPlaylistRow, "stream_status">): boolean {
+  return r.stream_status == null || r.stream_status === "" || r.stream_status !== "upcoming";
+}
+
+function mergeVideoIndexRowsById(rows: VideoIndexPlaylistRow[]): VideoIndexPlaylistRow[] {
+  const byId = new Map<string, VideoIndexPlaylistRow>();
+  for (const r of rows) {
+    if (!byId.has(r.id)) byId.set(r.id, r);
+  }
+  return Array.from(byId.values()).sort(
+    (a, b) => new Date(b.published_at ?? 0).getTime() - new Date(a.published_at ?? 0).getTime(),
+  );
+}
+
 /** Newest first for playlist / course rails and preview modal. */
 function sortPlaylistItemsNewestFirst(items: PlaylistVideoItem[]): PlaylistVideoItem[] {
   const sorted = [...items].sort((a, b) => {
@@ -1389,22 +1429,20 @@ async function getPlaylistVideosFromIndex(playlistId: string): Promise<PlaylistV
     });
 
     const selectCols =
-      "id,title,thumbnail_url,video_url,published_at,duration,tags,description";
+      "id,title,thumbnail_url,video_url,published_at,duration,tags,description,stream_status";
 
     const baseOrdered = () =>
-      supabase
-        .from("video_index")
-        .select(selectCols)
-        .eq("is_short", false)
-        .or("stream_status.is.null,stream_status.neq.upcoming")
-        .order("published_at", { ascending: false });
+      supabase.from("video_index").select(selectCols).eq("is_short", false).order("published_at", { ascending: false });
+
+    const filterReplay = (rows: VideoIndexPlaylistRow[]) =>
+      mergeVideoIndexRowsById(rows.filter(indexRowIsPublishedReplay));
 
     // 1) Preferred: rows explicitly tagged with this playlist id (from indexing).
     const playlistRows = await fetchAllVideoIndexRows((rangeFrom, rangeTo) =>
       baseOrdered().contains("playlist_ids", [playlistId]).range(rangeFrom, rangeTo),
     );
     if (playlistRows.length) {
-      return mapVideoIndexRowsToPlaylistItems(playlistRows);
+      return mapVideoIndexRowsToPlaylistItems(filterReplay(playlistRows as VideoIndexPlaylistRow[]));
     }
 
     // 2) Tool playlist cards: same tag membership as /tools/[slug] (often populated when playlist_ids is not).
@@ -1415,7 +1453,7 @@ async function getPlaylistVideosFromIndex(playlistId: string): Promise<PlaylistV
           baseOrdered().contains("tags", [t]).range(rangeFrom, rangeTo),
         );
         if (tagRows.length) {
-          return mapVideoIndexRowsToPlaylistItems(tagRows);
+          return mapVideoIndexRowsToPlaylistItems(filterReplay(tagRows as VideoIndexPlaylistRow[]));
         }
       }
     }
@@ -1427,16 +1465,23 @@ async function getPlaylistVideosFromIndex(playlistId: string): Promise<PlaylistV
       return [];
     }
 
-    // 4) Recurring series: title fragment (last resort when playlist_ids never merged).
+    // 4) Recurring series: title/description ILIKE fallbacks when playlist_ids was never merged.
+    //    Avoid chaining a second `.or()` with `stream_status` (PostgREST can mishandle duplicate `or=` params);
+    //    filter upcoming rows in memory instead.
     const series = RECURRING_SERIES.find((s) => s.playlistId === playlistId);
     if (series) {
-      const hint = seriesTitleSearchHint(series.title);
-      if (hint) {
+      const hintFromTitle = seriesTitleSearchHint(series.title);
+      const hints = [...(hintFromTitle ? [hintFromTitle] : []), ...(series.titleMatchHints ?? [])]
+        .map((h) => h.trim())
+        .filter((h) => h.length >= 3);
+      const uniqueHints = [...new Set(hints)];
+      if (uniqueHints.length) {
+        const orParts = uniqueHints.flatMap((h) => [`title.ilike.%${h}%`, `description.ilike.%${h}%`]);
         const titleRows = await fetchAllVideoIndexRows((rangeFrom, rangeTo) =>
-          baseOrdered().ilike("title", `%${hint}%`).range(rangeFrom, rangeTo),
+          baseOrdered().or(orParts.join(",")).range(rangeFrom, rangeTo),
         );
         if (titleRows.length) {
-          return mapVideoIndexRowsToPlaylistItems(titleRows);
+          return mapVideoIndexRowsToPlaylistItems(filterReplay(titleRows as VideoIndexPlaylistRow[]));
         }
       }
     }
@@ -1451,48 +1496,56 @@ export async function getPlaylistVideos(
   playlistId: string,
   cacheTtlMs: number = CACHE_TTL_MS,
 ): Promise<PlaylistVideoItem[]> {
-  // v7: course DB fallback no longer uses broad tool tags (wrong lesson list).
-  return withCache(`playlist_videos:v7:${playlistId}`, async () => {
-    try {
-      const data = await proxyFetch("playlist_videos", { playlistId }) as YTPlaylistItemResponse | null;
-      if (!data?.items?.length) {
-        // API returned nothing (quota exhausted or error) — fall back to DB index
+  // v8: new cache namespace + index-first + do not persist empty arrays (backfill visibility).
+  return withCache(
+    `playlist_videos:v8:${playlistId}`,
+    async () => {
+      const fromIndex = await getPlaylistVideosFromIndex(playlistId);
+      if (fromIndex.length > 0) {
+        return sortPlaylistItemsNewestFirst(fromIndex);
+      }
+
+      try {
+        const data = await proxyFetch("playlist_videos", { playlistId }) as YTPlaylistItemResponse | null;
+        if (!data?.items?.length) {
+          return getPlaylistVideosFromIndex(playlistId);
+        }
+
+        const videoIds = data.items.map((i) => i.contentDetails.videoId).join(",");
+        const statsData = await proxyFetch("playlist_video_stats", { ids: videoIds }) as YTVideoResponse | null;
+        const statsMap = new Map<string, YTVideoItem>();
+        if (statsData?.items) {
+          for (const v of statsData.items) statsMap.set(v.id, v);
+        }
+
+        const out: PlaylistVideoItem[] = [];
+        for (const item of data.items) {
+          const id = item.contentDetails.videoId;
+          const vid = statsMap.get(id);
+          if (vid?.status?.privacyStatus === "private") continue;
+
+          out.push({
+            id,
+            title: decodeHtmlEntities(item.snippet.title),
+            thumbnail: bestThumb(item.snippet.thumbnails),
+            duration: vid?.contentDetails?.duration ? parseDuration(vid.contentDetails.duration) : "",
+            publishedAt: item.snippet.publishedAt,
+            viewCount: vid ? parseInt(vid.statistics?.viewCount ?? "0") : 0,
+            position: item.snippet.position,
+            description: vid?.snippet?.description ? decodeHtmlEntities(vid.snippet.description) : "",
+          });
+        }
+
+        if (out.length === 0) return getPlaylistVideosFromIndex(playlistId);
+        return sortPlaylistItemsNewestFirst(out);
+      } catch {
         return getPlaylistVideosFromIndex(playlistId);
       }
-
-      const videoIds = data.items.map((i) => i.contentDetails.videoId).join(",");
-      const statsData = await proxyFetch("playlist_video_stats", { ids: videoIds }) as YTVideoResponse | null;
-      const statsMap = new Map<string, YTVideoItem>();
-      if (statsData?.items) {
-        for (const v of statsData.items) statsMap.set(v.id, v);
-      }
-
-      // If the stats call fails or returns partial data, still list playlist items (snippet is enough).
-      // Requiring a stats row + "public" produced an empty sidebar when stats were missing (e.g. second proxy call failed).
-      const out: PlaylistVideoItem[] = [];
-      for (const item of data.items) {
-        const id = item.contentDetails.videoId;
-        const vid = statsMap.get(id);
-        if (vid?.status?.privacyStatus === "private") continue;
-
-        out.push({
-          id,
-          title: decodeHtmlEntities(item.snippet.title),
-          thumbnail: bestThumb(item.snippet.thumbnails),
-          duration: vid?.contentDetails?.duration ? parseDuration(vid.contentDetails.duration) : "",
-          publishedAt: item.snippet.publishedAt,
-          viewCount: vid ? parseInt(vid.statistics?.viewCount ?? "0") : 0,
-          position: item.snippet.position,
-          description: vid?.snippet?.description ? decodeHtmlEntities(vid.snippet.description) : "",
-        });
-      }
-
-      if (out.length === 0) return getPlaylistVideosFromIndex(playlistId);
-      return sortPlaylistItemsNewestFirst(out);
-    } catch {
-      return getPlaylistVideosFromIndex(playlistId);
-    }
-  }, cacheTtlMs);
+    },
+    cacheTtlMs,
+    false,
+    false,
+  );
 }
 
 export async function getPlaylistDescription(playlistId: string): Promise<string> {
