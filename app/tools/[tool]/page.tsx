@@ -78,6 +78,12 @@ function mergeVideoRowsById<T extends { id: string; published_at: string | null 
   );
 }
 
+/** Replays and uploads: hide scheduled streams and currently-live rows only. */
+function isPlayableToolIndexRow(r: { stream_status: string | null }): boolean {
+  const s = r.stream_status;
+  return s !== "upcoming" && s !== "live";
+}
+
 export default async function ToolPage({ params }: { params: { tool: string } }) {
   const meta = TOOL_META[params.tool];
   if (!meta) notFound();
@@ -94,9 +100,10 @@ export default async function ToolPage({ params }: { params: { tool: string } })
     duration: string | null;
     tags: string[] | null;
     description: string | null;
+    stream_status: string | null;
   };
-  const selectCols = "id, title, thumbnail_url, video_url, published_at, duration, tags, description";
-  const streamOr = "stream_status.is.null,stream_status.neq.upcoming";
+  const selectCols =
+    "id, title, thumbnail_url, video_url, published_at, duration, tags, description, stream_status";
 
   let rows: VideoRow[] = [];
   if (SUPABASE_URL && SUPABASE_ANON_KEY) {
@@ -108,13 +115,12 @@ export default async function ToolPage({ params }: { params: { tool: string } })
         supabase
           .from("video_index")
           .select(selectCols)
-          .eq("is_live_stream", false)
-          .or(streamOr)
+          .eq("is_short", false)
           .contains("tags", [tag])
           .order("published_at", { ascending: false })
           .range(rangeFrom, rangeTo),
       );
-      combined.push(...part);
+      combined.push(...part.filter(isPlayableToolIndexRow));
     }
 
     if (playlistCfg) {
@@ -122,16 +128,30 @@ export default async function ToolPage({ params }: { params: { tool: string } })
         supabase
           .from("video_index")
           .select(selectCols)
-          .eq("is_live_stream", false)
-          .or(streamOr)
+          .eq("is_short", false)
           .contains("playlist_ids", [playlistCfg.playlistId])
           .order("published_at", { ascending: false })
           .range(rangeFrom, rangeTo),
       );
-      combined.push(...byPlaylist);
+      combined.push(...byPlaylist.filter(isPlayableToolIndexRow));
     }
 
     rows = mergeVideoRowsById(combined);
+  }
+
+  if (rows.length === 0 && SUPABASE_URL && SUPABASE_ANON_KEY) {
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const hint = meta.tag;
+    const fallback = await fetchAllVideoIndexRows<VideoRow>((rangeFrom, rangeTo) =>
+      supabase
+        .from("video_index")
+        .select(selectCols)
+        .eq("is_short", false)
+        .or(`title.ilike.%${hint}%,description.ilike.%${hint}%`)
+        .order("published_at", { ascending: false })
+        .range(rangeFrom, rangeTo),
+    );
+    rows = mergeVideoRowsById(fallback.filter(isPlayableToolIndexRow));
   }
 
   const videos: Video[] = rows
@@ -223,12 +243,12 @@ export default async function ToolPage({ params }: { params: { tool: string } })
         {videos.length === 0 ? (
           <div className="py-20 text-center space-y-4 max-w-md mx-auto">
             <p className="text-white/40 text-sm leading-relaxed">
-              No videos for this tool are in your Supabase index yet. After{" "}
-              <code className="text-white/55">index-all-videos</code> runs (and optionally{" "}
-              <code className="text-white/55">backfill-playlist-membership</code> so playlist membership is stored), videos
-              tagged{" "}
+              No replay rows matched yet. The index should tag videos with{" "}
               <span className="text-white/55">{indexTagFiltersForToolSlug(params.tool, meta.tag).join(" · ")}</span>
-              {" "}or in the official YouTube playlist for this tool will appear here.
+              {" "}or store the official playlist id on each row (run{" "}
+              <code className="text-white/55">index-all-videos</code> and optionally{" "}
+              <code className="text-white/55">backfill-playlist-membership</code>). Scheduled and currently-live streams
+              are hidden; completed live replays are included.
             </p>
             <Link
               href={`/videos?tool=${encodeURIComponent(meta.tag)}`}

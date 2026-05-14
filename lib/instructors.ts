@@ -213,9 +213,12 @@ type VideoIndexRow = {
   duration: string | null;
   tags: string[] | null;
   playlist_ids: string[] | null;
-  is_live_stream: boolean;
   stream_status: string | null;
 };
+
+function instructorAppearanceStreamOk(r: Pick<VideoIndexRow, "stream_status">): boolean {
+  return r.stream_status !== "upcoming" && r.stream_status !== "live";
+}
 
 async function fetchInstructorAppearanceRows(
   supabase: SupabaseClient,
@@ -234,16 +237,15 @@ async function fetchInstructorAppearanceRows(
     supabase
       .from("video_index")
       .select(
-        "id, title, description, thumbnail_url, video_url, published_at, duration, tags, playlist_ids, is_live_stream, stream_status",
+        "id, title, description, thumbnail_url, video_url, published_at, duration, tags, playlist_ids, stream_status",
       )
-      .eq("is_live_stream", false)
       .or(nameOr)
       .order("published_at", { ascending: false })
       .range(rangeFrom, rangeTo),
   );
 
   const merged = mergeVideoRowsById(rows);
-  return merged.filter((r) => r.stream_status == null || r.stream_status !== "upcoming");
+  return merged.filter(instructorAppearanceStreamOk);
 }
 
 const MAX_APPEARANCES_ON_PROFILE = 180;
