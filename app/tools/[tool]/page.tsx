@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Header from "@/components/adobe-live/Header";
 import SocialFooter from "@/components/adobe-live/SocialFooter";
-import { getPlaylistVideos, isShortFormatVideo } from "@/lib/youtube";
+import { getToolBrowseVideosMerged, isShortFormatVideo } from "@/lib/youtube";
 import { getToolPlaylistConfigBySlug, TOOL_PLAYLIST_CONFIG, youtubePlaylistUrl } from "@/lib/tool-playlists";
 
 export const revalidate = 86400;
@@ -66,7 +66,7 @@ export default async function ToolPage({ params }: { params: { tool: string } })
   const playlistCfg = getToolPlaylistConfigBySlug(params.tool);
   const officialPlaylistUrl = playlistCfg ? youtubePlaylistUrl(playlistCfg.playlistId) : null;
 
-  const items = playlistCfg ? await getPlaylistVideos(playlistCfg.playlistId) : [];
+  const items = playlistCfg ? await getToolBrowseVideosMerged(playlistCfg.slug) : [];
 
   const videos: Video[] = items
     .map((v) => ({

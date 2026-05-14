@@ -3,7 +3,7 @@ import Header from "@/components/adobe-live/Header";
 import SocialFooter from "@/components/adobe-live/SocialFooter";
 import VideoLibrary from "@/components/adobe-live/VideoLibrary";
 import { INDEX_ALL_VIDEOS_STALE_MS } from "@/lib/indexing-config";
-import { fetchAllVideoIndexForLibrary } from "@/lib/video-index-pagination";
+import { getVideoIndexSampleForSeo, getVideoIndexTotalCount } from "@/lib/video-library";
 
 export const revalidate = 86400;
 
@@ -30,17 +30,6 @@ export const metadata = {
   },
 };
 
-export interface LibraryVideo {
-  id: string;
-  title: string;
-  description: string;
-  thumbnail_url: string;
-  video_url: string;
-  duration: string;
-  tags: string[];
-  published_at: string | null;
-}
-
 const VALID_TOOLS = [
   "Photoshop", "Illustrator", "Premiere", "After Effects",
   "Lightroom", "Firefly", "Express", "InDesign", "Fresco", "Substance 3D",
@@ -49,6 +38,9 @@ const VALID_TOOLS = [
 interface PageProps {
   searchParams: { tool?: string };
 }
+
+/** Newest videos embedded in JSON-LD (full grid loads client-side from `/api/video-library`). */
+const JSON_LD_VIDEO_SAMPLE = 80;
 
 export default async function VideosPage({ searchParams }: PageProps) {
   const rawTool = searchParams.tool ?? "";
@@ -81,21 +73,16 @@ export default async function VideosPage({ searchParams }: PageProps) {
     })();
   }
 
-  let videos: LibraryVideo[] = [];
+  let totalIndexed = 0;
+  let seoSample: Awaited<ReturnType<typeof getVideoIndexSampleForSeo>> = [];
   if (hasSupabase) {
     const supabase = createClient(supabaseUrl, anonKey);
-    const rows = await fetchAllVideoIndexForLibrary(supabase);
-
-    videos = rows.map((v) => ({
-      id: v.id,
-      title: v.title,
-      description: v.description ?? "",
-      thumbnail_url: v.thumbnail_url,
-      video_url: v.video_url,
-      duration: v.duration ?? "",
-      tags: v.tags ?? [],
-      published_at: v.published_at ?? null,
-    }));
+    const [count, sample] = await Promise.all([
+      getVideoIndexTotalCount(supabase),
+      getVideoIndexSampleForSeo(supabase, JSON_LD_VIDEO_SAMPLE),
+    ]);
+    totalIndexed = count;
+    seoSample = sample;
   }
 
   const jsonLd = {
@@ -121,9 +108,8 @@ export default async function VideosPage({ searchParams }: PageProps) {
         "@type": "ItemList",
         name: "Adobe Live Video Library",
         description: "Complete library of Adobe Live tutorials, live stream replays, shorts, and courses.",
-        numberOfItems: videos.length,
-        // Cap embedded ListItems to keep HTML reasonable; full set is in the grid + video sitemap.
-        itemListElement: videos.slice(0, 2000).map((v, i) => ({
+        numberOfItems: totalIndexed,
+        itemListElement: seoSample.map((v, i) => ({
           "@type": "ListItem",
           position: i + 1,
           item: {
@@ -148,7 +134,7 @@ export default async function VideosPage({ searchParams }: PageProps) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <Header />
       <main>
-        <VideoLibrary videos={videos} initialTool={initialTool} />
+        <VideoLibrary initialTool={initialTool} indexedTotal={totalIndexed} />
       </main>
       <SocialFooter />
     </div>

@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Play, X, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
-import type { LibraryVideo } from "@/app/videos/page";
+import type { LibraryVideo } from "@/lib/video-library";
 import { trackSearch, trackSearchClick } from "@/lib/analytics";
 
 const TOOLS = [
@@ -84,13 +84,43 @@ function formatDate(iso: string | null): string {
 }
 
 interface Props {
-  videos: LibraryVideo[];
+  /** When set (e.g. tests), skips client fetch and uses this list as the full library. */
+  videos?: LibraryVideo[];
   initialTool?: string;
+  /** Exact `video_index` row count from the server (fast); shown while JSON loads. */
+  indexedTotal?: number;
 }
 
 const PAGE_SIZE = 48;
 
-export default function VideoLibrary({ videos, initialTool }: Props) {
+export default function VideoLibrary({ videos: initialVideos, initialTool, indexedTotal = 0 }: Props) {
+  const [videos, setVideos] = useState<LibraryVideo[]>(() => initialVideos ?? []);
+  const [loadState, setLoadState] = useState<"idle" | "loading" | "error" | "ready">(() =>
+    initialVideos && initialVideos.length > 0 ? "ready" : "loading",
+  );
+
+  useEffect(() => {
+    if (initialVideos && initialVideos.length > 0) return;
+    let cancelled = false;
+    (async () => {
+      setLoadState("loading");
+      try {
+        const res = await fetch("/api/video-library");
+        if (!res.ok) throw new Error(String(res.status));
+        const data = (await res.json()) as { videos: LibraryVideo[] };
+        if (cancelled) return;
+        setVideos(data.videos ?? []);
+        setLoadState("ready");
+      } catch {
+        if (!cancelled) setLoadState("error");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [initialVideos]);
+
+  const heavyList = videos.length > 120;
   const [search, setSearch] = useState("");
   const [tool, setTool] = useState(() => {
     if (!initialTool) return "All";
@@ -189,7 +219,21 @@ export default function VideoLibrary({ videos, initialTool }: Props) {
                 Video Library
               </h1>
               <p className="text-white/45 text-sm mt-1.5">
-                {videos.length} videos indexed from Adobe Live — search, filter, and find exactly what you need.
+                {loadState === "loading" && (!initialVideos || initialVideos.length === 0) ? (
+                  <>
+                    {indexedTotal > 0 ? (
+                      <>{indexedTotal.toLocaleString()} videos in the index — loading full library for search and filters…</>
+                    ) : (
+                      <>Loading video library…</>
+                    )}
+                  </>
+                ) : loadState === "error" ? (
+                  <>Could not load the video list. Check your connection and try again.</>
+                ) : (
+                  <>
+                    {videos.length.toLocaleString()} videos indexed from Adobe Live — search, filter, and find exactly what you need.
+                  </>
+                )}
               </p>
             </div>
             {activeFilters > 0 && (
@@ -270,18 +314,46 @@ export default function VideoLibrary({ videos, initialTool }: Props) {
           </div>
         </motion.div>
 
-        <div className="flex items-center gap-2 mb-5">
-          <span className="text-white/40 text-xs">
-            {filtered.length === videos.length
-              ? `${videos.length} videos`
-              : `${filtered.length} of ${videos.length} videos`}
-          </span>
-          {filtered.length !== videos.length && (
-            <span className="text-white/20 text-xs">matching filters</span>
-          )}
-        </div>
+        {videos.length > 0 && (
+          <div className="flex items-center gap-2 mb-5">
+            <span className="text-white/40 text-xs">
+              {filtered.length === videos.length
+                ? `${videos.length.toLocaleString()} videos`
+                : `${filtered.length.toLocaleString()} of ${videos.length.toLocaleString()} videos`}
+            </span>
+            {filtered.length !== videos.length && (
+              <span className="text-white/20 text-xs">matching filters</span>
+            )}
+          </div>
+        )}
 
-        {filtered.length === 0 ? (
+        {loadState === "error" && (!initialVideos || initialVideos.length === 0) ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
+            <p className="text-white/50 text-sm">The library could not be loaded.</p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="px-5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-medium border border-white/15"
+            >
+              Retry
+            </button>
+          </div>
+        ) : loadState === "loading" && videos.length === 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+            {Array.from({ length: 24 }).map((_, i) => (
+              <div
+                key={i}
+                className="rounded-xl border border-white/8 overflow-hidden bg-white/[0.03] animate-pulse"
+              >
+                <div className="aspect-video bg-white/10" />
+                <div className="p-2.5 space-y-2">
+                  <div className="h-3 bg-white/10 rounded w-full" />
+                  <div className="h-3 bg-white/10 rounded w-2/3" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center mb-4">
               <Search className="w-5 h-5 text-white/20" />
@@ -294,7 +366,7 @@ export default function VideoLibrary({ videos, initialTool }: Props) {
         ) : (
           <>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-              <AnimatePresence mode="popLayout">
+              <AnimatePresence mode={heavyList ? "sync" : "popLayout"}>
                 {paged.map((video, i) => (
                   <VideoCard
                     key={video.id}
@@ -302,6 +374,7 @@ export default function VideoLibrary({ videos, initialTool }: Props) {
                     index={i}
                     searchQuery={search}
                     onClickCapture={() => handleVideoClick(video.id)}
+                    lightMotion={heavyList}
                   />
                 ))}
               </AnimatePresence>
@@ -329,11 +402,13 @@ function VideoCard({
   index,
   searchQuery,
   onClickCapture,
+  lightMotion,
 }: {
   video: LibraryVideo;
   index: number;
   searchQuery?: string;
   onClickCapture?: () => void;
+  lightMotion?: boolean;
 }) {
   const short = isShort(video.duration);
   const firstTag = video.tags[0];
@@ -343,12 +418,16 @@ function VideoCard({
   return (
     <motion.div
       className="group flex flex-col rounded-xl border border-white/8 overflow-hidden bg-black/20 hover:border-white/20 transition-all duration-200"
-      initial={{ opacity: 0, scale: 0.97 }}
+      initial={lightMotion ? false : { opacity: 0, scale: 0.97 }}
       animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      transition={{ duration: 0.2, delay: Math.min(index * 0.015, 0.3) }}
-      whileHover={{ y: -3 }}
-      layout
+      exit={lightMotion ? undefined : { opacity: 0, scale: 0.95 }}
+      transition={
+        lightMotion
+          ? { duration: 0 }
+          : { duration: 0.2, delay: Math.min(index * 0.015, 0.3) }
+      }
+      whileHover={lightMotion ? undefined : { y: -3 }}
+      layout={!lightMotion}
     >
       <Link href={`/videos/${video.id}`} onClick={onClickCapture} className="flex flex-col flex-1">
         <div className="relative overflow-hidden bg-black/40 aspect-video">

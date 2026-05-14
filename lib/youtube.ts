@@ -882,6 +882,9 @@ const TOOL_PLAYLIST_IDS: { tool: string; id: string; slug: string }[] = TOOL_PLA
   slug: c.slug,
 }));
 
+/** Cap merged `video_index` rows per tool page (beyond the official playlist), newest first. */
+const TOOL_BROWSE_TAGGED_LIBRARY_CAP = 2500;
+
 const FALLBACK_TOOL_PLAYLISTS: ToolPlaylist[] = TOOL_PLAYLIST_CONFIG.map((c) => ({
   tool: c.tool,
   slug: c.slug,
@@ -1149,40 +1152,29 @@ export async function getPastStreams(): Promise<ScheduleItem[]> {
   }
 }
 
-// Instructor-led course playlists from @AdobeLiveCommunity
+// Adobe Live instructor-led courses — playlist order matches the canonical YouTube list (May 2026 refresh).
 const COURSE_PLAYLISTS: CoursePlaylist[] = [
   {
-    id: "aaron-nace",
-    title: "Photo Editing & Color Grading Techniques",
-    instructor: "Aaron Nace",
-    playlistId: "PLMMOwZoEbhuxQKC6pFbFA3RFf9Lbw5ihP",
-    playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuxQKC6pFbFA3RFf9Lbw5ihP",
+    id: "pixipui",
+    title: "Motion Comics & After Effects with Pixipui",
+    instructor: "Raye Belvedere",
+    playlistId: "PLMMOwZoEbhuwYxeAYBfE_-nrwY0bfuIAT",
+    playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuwYxeAYBfE_-nrwY0bfuIAT",
     videoCount: 8,
-    thumbnail: "https://i.ytimg.com/vi/ZmGe6Pd3gVQ/hqdefault.jpg",
-    tool: "Photoshop",
-    tags: ["Photoshop", "Lightroom"],
+    thumbnail: "https://i.ytimg.com/vi/-LfVs-bVf90/hqdefault.jpg",
+    tool: "After Effects",
+    tags: ["After Effects", "Illustrator"],
   },
   {
-    id: "jesus-ramirez",
-    title: "Photo Editing & Compositing Techniques",
-    instructor: "Jesús Ramirez",
-    playlistId: "PLMMOwZoEbhuyt3azcxF5wsm-QYsIuJBc3",
-    playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuyt3azcxF5wsm-QYsIuJBc3",
+    id: "fabiola-lara",
+    title: "Content Creation for Artists",
+    instructor: "Fabiola Lara",
+    playlistId: "PLMMOwZoEbhuwpXwGuVkChKeoMaXoJlpKq",
+    playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuwpXwGuVkChKeoMaXoJlpKq",
     videoCount: 8,
-    thumbnail: "https://i.ytimg.com/vi/Kl46iSQuSZs/hqdefault.jpg",
-    tool: "Photoshop",
-    tags: ["Photoshop"],
-  },
-  {
-    id: "idara-ekoph",
-    title: "Portrait Photo Editing & Color Grading",
-    instructor: "Idara Ekoph",
-    playlistId: "PLMMOwZoEbhuyr_MCFH-H2RSwOKKSqaDcN",
-    playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuyr_MCFH-H2RSwOKKSqaDcN",
-    videoCount: 8,
-    thumbnail: "https://i.ytimg.com/vi/9O3xHJHCNJs/hqdefault.jpg",
-    tool: "Lightroom",
-    tags: ["Lightroom", "Photoshop"],
+    thumbnail: "https://i.ytimg.com/vi/bRjiz8NRtAQ/hqdefault.jpg",
+    tool: "Express",
+    tags: ["Express", "Firefly"],
   },
   {
     id: "matthew-tjokro",
@@ -1196,48 +1188,15 @@ const COURSE_PLAYLISTS: CoursePlaylist[] = [
     tags: ["Illustrator", "Photoshop"],
   },
   {
-    id: "spencer-nugent",
-    title: "Illustration & Visual Design Techniques",
-    instructor: "Spencer Nugent",
-    playlistId: "PLMMOwZoEbhuxoPPvHfLYVfv9VCPmezV6T",
-    playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuxoPPvHfLYVfv9VCPmezV6T",
+    id: "ryan-selvy",
+    title: "Troubleshooting, Speed & Productivity Tips",
+    instructor: "Ryan Selvy",
+    playlistId: "PLMMOwZoEbhuw-bDGYfMyxKdGd1T4mJPO9",
+    playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuw-bDGYfMyxKdGd1T4mJPO9",
     videoCount: 8,
-    thumbnail: "https://i.ytimg.com/vi/gr1Bl9Av2VQ/hqdefault.jpg",
-    tool: "Illustrator",
-    tags: ["Illustrator"],
-  },
-  {
-    id: "tyler-pate",
-    title: "Pen Tool & Vector Illustration Techniques",
-    instructor: "Tyler Pate",
-    playlistId: "PLMMOwZoEbhuy1K5d9VuQI2f8nI1PkSg8S",
-    playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuy1K5d9VuQI2f8nI1PkSg8S",
-    videoCount: 4,
-    thumbnail: "https://i.ytimg.com/vi/FPRmP9qpcoA/hqdefault.jpg",
-    tool: "Illustrator",
-    tags: ["Illustrator"],
-  },
-  {
-    id: "jess-goldsmith",
-    title: "Typography & Text-Based Design",
-    instructor: "Jess Goldsmith",
-    playlistId: "PLMMOwZoEbhuxDXQ-uVPSzyrUO75FuS8ag",
-    playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuxDXQ-uVPSzyrUO75FuS8ag",
-    videoCount: 7,
-    thumbnail: "https://i.ytimg.com/vi/RBPKZYjAvEk/hqdefault.jpg",
-    tool: "InDesign",
-    tags: ["InDesign", "Illustrator"],
-  },
-  {
-    id: "liz-mosley",
-    title: "Brand Identity Design",
-    instructor: "Liz Mosley",
-    playlistId: "PLMMOwZoEbhuxNHXxjQOAK4NXtXk2XA2CQ",
-    playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuxNHXxjQOAK4NXtXk2XA2CQ",
-    videoCount: 8,
-    thumbnail: "https://i.ytimg.com/vi/L4Nn-RTIe10/hqdefault.jpg",
-    tool: "Illustrator",
-    tags: ["Illustrator", "InDesign"],
+    thumbnail: "https://i.ytimg.com/vi/N-sWUFYGf6k/hqdefault.jpg",
+    tool: "Photoshop",
+    tags: ["Photoshop", "Lightroom"],
   },
   {
     id: "steven-overturf",
@@ -1251,15 +1210,37 @@ const COURSE_PLAYLISTS: CoursePlaylist[] = [
     tags: ["Illustrator"],
   },
   {
-    id: "brittney-megann",
-    title: "Brand Building & Brand Identity Design",
-    instructor: "Brittney Megann",
-    playlistId: "PLMMOwZoEbhuxHSfFSVZkTwUPAMRytAjJ1",
-    playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuxHSfFSVZkTwUPAMRytAjJ1",
+    id: "stephy-fung",
+    title: "Digital Fashion & 3D Garment Texturing",
+    instructor: "Stephy Fung",
+    playlistId: "PLMMOwZoEbhuw035aCDkvH0DN_OPuWqQeK",
+    playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuw035aCDkvH0DN_OPuWqQeK",
     videoCount: 8,
-    thumbnail: "https://i.ytimg.com/vi/aGu5NbQUXqQ/hqdefault.jpg",
+    thumbnail: "https://i.ytimg.com/vi/KYigRBUyzxQ/hqdefault.jpg",
+    tool: "Substance 3D",
+    tags: ["Substance 3D", "Photoshop"],
+  },
+  {
+    id: "tyler-pate",
+    title: "Pen Tool & Vector Illustration Techniques",
+    instructor: "Tyler Pate",
+    playlistId: "PLMMOwZoEbhuy1K5d9VuQI2f8nI1PkSg8S",
+    playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuy1K5d9VuQI2f8nI1PkSg8S",
+    videoCount: 4,
+    thumbnail: "https://i.ytimg.com/vi/FPRmP9qpcoA/hqdefault.jpg",
     tool: "Illustrator",
-    tags: ["Illustrator", "Express"],
+    tags: ["Illustrator"],
+  },
+  {
+    id: "chris-grubisa",
+    title: "Video Editing & Content Production Techniques",
+    instructor: "Chris Grubisa",
+    playlistId: "PLMMOwZoEbhuzKw38xhKeJ2qjmXzb0zkyn",
+    playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuzKw38xhKeJ2qjmXzb0zkyn",
+    videoCount: 8,
+    thumbnail: "https://i.ytimg.com/vi/Kly2kyKwOm0/hqdefault.jpg",
+    tool: "Premiere",
+    tags: ["Premiere", "After Effects"],
   },
   {
     id: "izzy-poirier",
@@ -1284,15 +1265,48 @@ const COURSE_PLAYLISTS: CoursePlaylist[] = [
     tags: ["Illustrator", "Photoshop"],
   },
   {
-    id: "chris-grubisa",
-    title: "Video Editing & Content Production Techniques",
-    instructor: "Chris Grubisa",
-    playlistId: "PLMMOwZoEbhuzKw38xhKeJ2qjmXzb0zkyn",
-    playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuzKw38xhKeJ2qjmXzb0zkyn",
+    id: "aaron-nace",
+    title: "Photo Editing & Color Grading Techniques",
+    instructor: "Aaron Nace",
+    playlistId: "PLMMOwZoEbhuxQKC6pFbFA3RFf9Lbw5ihP",
+    playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuxQKC6pFbFA3RFf9Lbw5ihP",
     videoCount: 8,
-    thumbnail: "https://i.ytimg.com/vi/Kly2kyKwOm0/hqdefault.jpg",
-    tool: "Premiere",
-    tags: ["Premiere", "After Effects"],
+    thumbnail: "https://i.ytimg.com/vi/ZmGe6Pd3gVQ/hqdefault.jpg",
+    tool: "Photoshop",
+    tags: ["Photoshop", "Lightroom"],
+  },
+  {
+    id: "jesus-ramirez",
+    title: "Photo Editing & Compositing Techniques",
+    instructor: "Jesús Ramirez",
+    playlistId: "PLMMOwZoEbhuyt3azcxF5wsm-QYsIuJBc3",
+    playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuyt3azcxF5wsm-QYsIuJBc3",
+    videoCount: 8,
+    thumbnail: "https://i.ytimg.com/vi/Kl46iSQuSZs/hqdefault.jpg",
+    tool: "Photoshop",
+    tags: ["Photoshop"],
+  },
+  {
+    id: "liz-mosley",
+    title: "Brand Identity Design",
+    instructor: "Liz Mosley",
+    playlistId: "PLMMOwZoEbhuxNHXxjQOAK4NXtXk2XA2CQ",
+    playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuxNHXxjQOAK4NXtXk2XA2CQ",
+    videoCount: 8,
+    thumbnail: "https://i.ytimg.com/vi/L4Nn-RTIe10/hqdefault.jpg",
+    tool: "Illustrator",
+    tags: ["Illustrator", "InDesign"],
+  },
+  {
+    id: "spencer-nugent",
+    title: "Illustration & Visual Design Techniques",
+    instructor: "Spencer Nugent",
+    playlistId: "PLMMOwZoEbhuxoPPvHfLYVfv9VCPmezV6T",
+    playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuxoPPvHfLYVfv9VCPmezV6T",
+    videoCount: 8,
+    thumbnail: "https://i.ytimg.com/vi/gr1Bl9Av2VQ/hqdefault.jpg",
+    tool: "Illustrator",
+    tags: ["Illustrator"],
   },
   {
     id: "james-bonanno",
@@ -1306,28 +1320,6 @@ const COURSE_PLAYLISTS: CoursePlaylist[] = [
     tags: ["Premiere"],
   },
   {
-    id: "fabiola-lara",
-    title: "Content Creation for Artists",
-    instructor: "Fabiola Lara",
-    playlistId: "PLMMOwZoEbhuwpXwGuVkChKeoMaXoJlpKq",
-    playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuwpXwGuVkChKeoMaXoJlpKq",
-    videoCount: 8,
-    thumbnail: "https://i.ytimg.com/vi/bRjiz8NRtAQ/hqdefault.jpg",
-    tool: "Express",
-    tags: ["Express", "Firefly"],
-  },
-  {
-    id: "stephy-fung",
-    title: "Digital Fashion & 3D Garment Texturing",
-    instructor: "Stephy Fung",
-    playlistId: "PLMMOwZoEbhuw035aCDkvH0DN_OPuWqQeK",
-    playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuw035aCDkvH0DN_OPuWqQeK",
-    videoCount: 8,
-    thumbnail: "https://i.ytimg.com/vi/KYigRBUyzxQ/hqdefault.jpg",
-    tool: "Substance 3D",
-    tags: ["Substance 3D", "Photoshop"],
-  },
-  {
     id: "jacob-paris",
     title: "Turn Digital Designs into Physical Art",
     instructor: "Jacob Paris",
@@ -1339,26 +1331,37 @@ const COURSE_PLAYLISTS: CoursePlaylist[] = [
     tags: ["Illustrator", "Photoshop"],
   },
   {
-    id: "ryan-selvy",
-    title: "Troubleshooting, Speed & Productivity Tips",
-    instructor: "Ryan Selvy",
-    playlistId: "PLMMOwZoEbhuw-bDGYfMyxKdGd1T4mJPO9",
-    playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuw-bDGYfMyxKdGd1T4mJPO9",
-    videoCount: 8,
-    thumbnail: "https://i.ytimg.com/vi/N-sWUFYGf6k/hqdefault.jpg",
-    tool: "Photoshop",
-    tags: ["Photoshop", "Lightroom"],
+    id: "jess-goldsmith",
+    title: "Typography & Text-Based Design",
+    instructor: "Jess Goldsmith",
+    playlistId: "PLMMOwZoEbhuxDXQ-uVPSzyrUO75FuS8ag",
+    playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuxDXQ-uVPSzyrUO75FuS8ag",
+    videoCount: 7,
+    thumbnail: "https://i.ytimg.com/vi/RBPKZYjAvEk/hqdefault.jpg",
+    tool: "InDesign",
+    tags: ["InDesign", "Illustrator"],
   },
   {
-    id: "pixipui",
-    title: "Motion Comics & After Effects with Pixipui",
-    instructor: "Raye Belvedere",
-    playlistId: "PLMMOwZoEbhuwYxeAYBfE_-nrwY0bfuIAT",
-    playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuwYxeAYBfE_-nrwY0bfuIAT",
+    id: "idara-ekoph",
+    title: "Portrait Photo Editing & Color Grading",
+    instructor: "Idara Ekoph",
+    playlistId: "PLMMOwZoEbhuyr_MCFH-H2RSwOKKSqaDcN",
+    playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuyr_MCFH-H2RSwOKKSqaDcN",
     videoCount: 8,
-    thumbnail: "https://i.ytimg.com/vi/-LfVs-bVf90/hqdefault.jpg",
-    tool: "After Effects",
-    tags: ["After Effects", "Illustrator"],
+    thumbnail: "https://i.ytimg.com/vi/9O3xHJHCNJs/hqdefault.jpg",
+    tool: "Lightroom",
+    tags: ["Lightroom", "Photoshop"],
+  },
+  {
+    id: "brittney-megann",
+    title: "Brand Building & Brand Identity Design",
+    instructor: "Brittney Megann",
+    playlistId: "PLMMOwZoEbhuxHSfFSVZkTwUPAMRytAjJ1",
+    playlistUrl: "https://www.youtube.com/playlist?list=PLMMOwZoEbhuxHSfFSVZkTwUPAMRytAjJ1",
+    videoCount: 8,
+    thumbnail: "https://i.ytimg.com/vi/aGu5NbQUXqQ/hqdefault.jpg",
+    tool: "Illustrator",
+    tags: ["Illustrator", "Express"],
   },
 ];
 
@@ -1576,10 +1579,10 @@ export async function getPlaylistVideos(
   playlistId: string,
   cacheTtlMs: number = CACHE_TTL_MS,
 ): Promise<PlaylistVideoItem[]> {
-  // v10: YouTube API first; index fallback includes course rows matched by instructor + tool tags
-  // when playlist_ids is empty. Cache key bump clears stale empty v9 entries.
+  // v11: YouTube API first; index fallback includes course rows matched by instructor + tool tags
+  // when playlist_ids is empty. Cache key bump clears stale entries after course catalog refresh.
   return withCache(
-    `playlist_videos:v10:${playlistId}`,
+    `playlist_videos:v11:${playlistId}`,
     async () => {
       try {
         const data = await proxyFetch("playlist_videos", { playlistId }) as YTPlaylistItemResponse | null;
@@ -1624,6 +1627,78 @@ export async function getPlaylistVideos(
     false,
     true,
   );
+}
+
+/**
+ * Official YouTube tool playlist plus every `video_index` row tagged for this tool
+ * (`indexTagFiltersForToolSlug`). De-duplicated by video id: playlist results first
+ * (newest-first as returned by `getPlaylistVideos`), then library-only rows newest-first.
+ */
+export async function getToolBrowseVideosMerged(slug: string): Promise<PlaylistVideoItem[]> {
+  const cfg = TOOL_PLAYLIST_CONFIG.find((c) => c.slug === slug);
+  if (!cfg) return [];
+
+  const [fromPlaylist, taggedRows] = await Promise.all([
+    getPlaylistVideos(cfg.playlistId),
+    fetchToolTaggedVideoIndexRows(slug, cfg.tool),
+  ]);
+  const fromLibrary = mapVideoIndexRowsToPlaylistItems(taggedRows);
+
+  const seen = new Set<string>();
+  const out: PlaylistVideoItem[] = [];
+
+  for (const v of fromPlaylist) {
+    if (seen.has(v.id)) continue;
+    seen.add(v.id);
+    out.push(v);
+  }
+  for (const v of fromLibrary) {
+    if (seen.has(v.id)) continue;
+    seen.add(v.id);
+    out.push(v);
+  }
+
+  return out.map((item, i) => ({ ...item, position: i }));
+}
+
+async function fetchToolTaggedVideoIndexRows(slug: string, canonicalTool: string): Promise<VideoIndexPlaylistRow[]> {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return [];
+  try {
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
+    const selectCols =
+      "id,title,thumbnail_url,video_url,published_at,duration,tags,description,stream_status";
+
+    const PAGE = 1000;
+    const byId = new Map<string, VideoIndexPlaylistRow>();
+
+    tagLoop: for (const t of indexTagFiltersForToolSlug(slug, canonicalTool)) {
+      let rangeFrom = 0;
+      for (;;) {
+        if (byId.size >= TOOL_BROWSE_TAGGED_LIBRARY_CAP) break tagLoop;
+        const { data, error } = await supabase
+          .from("video_index")
+          .select(selectCols)
+          .eq("is_short", false)
+          .contains("tags", [t])
+          .order("published_at", { ascending: false })
+          .range(rangeFrom, rangeFrom + PAGE - 1);
+        if (error) break;
+        const batch = (data ?? []) as VideoIndexPlaylistRow[];
+        for (const r of batch) {
+          if (indexRowIsPublishedReplay(r)) byId.set(r.id, r);
+        }
+        if (batch.length < PAGE) break;
+        rangeFrom += PAGE;
+      }
+    }
+
+    return mergeVideoIndexRowsById(Array.from(byId.values())).slice(0, TOOL_BROWSE_TAGGED_LIBRARY_CAP);
+  } catch {
+    return [];
+  }
 }
 
 export async function getPlaylistDescription(playlistId: string): Promise<string> {

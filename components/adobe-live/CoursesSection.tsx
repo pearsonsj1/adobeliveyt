@@ -153,6 +153,7 @@ function CourseCard({ course, index }: { course: CoursePlaylist; index: number }
         tool: course.tool,
         instructor: course.instructor,
         playlistId: course.playlistId,
+        courseId: course.id,
       })}
       {...sharedMotionProps}
     >

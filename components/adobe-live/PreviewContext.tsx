@@ -23,6 +23,10 @@ export interface PreviewItem {
   instructor?: string;
   // playlist-specific: if set, modal will fetch and show playlist videos
   playlistId?: string;
+  /** Slug for `/courses/[id]` when `instructor` is set (not the YouTube playlist id). */
+  courseId?: string;
+  /** Slug for `/series/[slug]` for recurring shows (not the YouTube playlist id). */
+  seriesSlug?: string;
   /** When set with `tool`, links to `/tools/[slug]` without duplicating slug maps. */
   toolSlug?: string;
 }

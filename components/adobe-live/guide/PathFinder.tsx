@@ -59,11 +59,27 @@ interface PathNode {
   }[];
 }
 
+/** Section intro — editorial tone for the guide header. */
+function sectionIntro(tool: string | null): { kicker: string; title: string; body: string } {
+  if (tool) {
+    return {
+      kicker: "Guided navigation",
+      title: "Where should we take you next?",
+      body: `${tool} is already in context below. Use this short path to reach playlists, courses, or live programming aligned with your goal.`,
+    };
+  }
+  return {
+    kicker: "Guided navigation",
+    title: "Where should we take you next?",
+    body: "Answer one step at a time. We will suggest pages on this site that best match what you want to accomplish.",
+  };
+}
+
 const NODES: Record<string, PathNode> = {
   root: {
     id: "root",
     question: "What brings you to Adobe Live?",
-    subtitle: "Pick the one that fits best — we'll point you in the right direction.",
+    subtitle: "Choose the option that best describes your visit — we will suggest appropriate next steps.",
     options: [
       {
         label: "I want to learn an Adobe tool",
@@ -143,7 +159,7 @@ const NODES: Record<string, PathNode> = {
   profession: {
     id: "profession",
     question: "What kind of creative work do you do?",
-    subtitle: "We'll match you to the content most relevant to your day-to-day.",
+    subtitle: "We will match you to content that fits how you work.",
     options: [
       {
         label: "Graphic designer / brand designer",
@@ -186,6 +202,45 @@ const NODES: Record<string, PathNode> = {
         icon: Briefcase,
         color: "#FFD200",
         next: "profession_freelance",
+      },
+      {
+        label: "Marketing, advertising, or campaign creative",
+        icon: Sparkles,
+        color: "#FF6B00",
+        destinations: [
+          {
+            label: "Generative AI for Branding & Campaign Design",
+            description: "Use Adobe Firefly and Express for on-brand visuals, campaign assets, and rapid iteration.",
+            url: "/courses/izzy-poirier",
+            tag: "Firefly · 8 lessons",
+          },
+          {
+            label: "Adobe Express Playlist",
+            description: "Templates, social graphics, and quick layouts for marketing and communications teams.",
+            url: "/tools/express",
+            tag: "Playlist",
+            toolName: "Express",
+          },
+        ],
+      },
+      {
+        label: "Creative direction, leadership, or strategy",
+        icon: Star,
+        color: "#FFD200",
+        destinations: [
+          {
+            label: "Shows & series catalog",
+            description: "Recurring Adobe Live programming — interviews, news, and industry discussion.",
+            url: "/series",
+            tag: "Series",
+          },
+          {
+            label: "The File New Show",
+            description: "Weekly creative news, tool updates, and designer-focused conversation.",
+            url: "/series/file-new",
+            tag: "Weekly",
+          },
+        ],
       },
       {
         label: "3D artist or product designer",
@@ -1031,6 +1086,34 @@ const NODES: Record<string, PathNode> = {
           },
         ],
       },
+      {
+        label: "Motion graphics, titles, or visual effects",
+        icon: Layers,
+        color: "#E478FF",
+        destinations: [
+          {
+            label: "After Effects Playlist",
+            description: "Motion design, compositing, animation, and effects — the full After Effects library.",
+            url: "/tools/after-effects",
+            tag: "Playlist",
+            toolName: "After Effects",
+          },
+        ],
+      },
+      {
+        label: "Print layout, editorial, or long documents",
+        icon: BookOpen,
+        color: "#FF3366",
+        destinations: [
+          {
+            label: "InDesign Playlist",
+            description: "Layout, typography, print production, and interactive documents.",
+            url: "/tools/indesign",
+            tag: "Playlist",
+            toolName: "InDesign",
+          },
+        ],
+      },
     ],
   },
 
@@ -1091,6 +1174,25 @@ const NODES: Record<string, PathNode> = {
             description: "Core Photoshop skills for professional photo editing, retouching, and compositing.",
             url: "/courses/jesus-ramirez",
             tag: "Photoshop · 8 lessons",
+          },
+        ],
+      },
+      {
+        label: "I coordinate training for a team or organization",
+        icon: Users,
+        color: "#9999FF",
+        destinations: [
+          {
+            label: "All courses",
+            description: "Structured series you can assign, share, or adapt for group learning.",
+            url: "/courses",
+            tag: "Courses",
+          },
+          {
+            label: "Subscribe to the channel",
+            description: "Receive notifications when new educational live sessions are scheduled.",
+            url: "https://www.youtube.com/@AdobeLiveCommunity?sub_confirmation=1",
+            tag: "Subscribe",
           },
         ],
       },
@@ -1292,6 +1394,32 @@ const NODES: Record<string, PathNode> = {
           },
         ],
       },
+      {
+        label: "I want recurring shows and series",
+        icon: Library,
+        color: "#9999FF",
+        destinations: [
+          {
+            label: "Shows & series catalog",
+            description: "Browse every recurring series — schedules, descriptions, and episode counts.",
+            url: "/series",
+            tag: "Series",
+          },
+        ],
+      },
+      {
+        label: "I want to browse the full video library",
+        icon: Library,
+        color: "#00C2A8",
+        destinations: [
+          {
+            label: "Video library",
+            description: "Search and filter every indexed tutorial, replay, and short.",
+            url: "/videos",
+            tag: "Library",
+          },
+        ],
+      },
     ],
   },
 
@@ -1338,6 +1466,12 @@ const NODES: Record<string, PathNode> = {
           },
         ],
       },
+      {
+        label: "Browse tutorials by Adobe application",
+        icon: BookOpen,
+        color: "#FA0F00",
+        next: "tool",
+      },
     ],
   },
 
@@ -1363,6 +1497,19 @@ const NODES: Record<string, PathNode> = {
         icon: Layers,
         color: "#FA0F00",
         next: "course_area_advanced",
+      },
+      {
+        label: "I want to compare all courses first",
+        icon: Library,
+        color: "#00C2A8",
+        destinations: [
+          {
+            label: "All courses",
+            description: "Browse every structured, multi-part course on Adobe Live.",
+            url: "/courses",
+            tag: "Courses",
+          },
+        ],
       },
     ],
   },
@@ -1834,6 +1981,19 @@ const NODES: Record<string, PathNode> = {
           },
         ],
       },
+      {
+        label: "I want the full searchable video library",
+        icon: Library,
+        color: "#31A8FF",
+        destinations: [
+          {
+            label: "Video library",
+            description: "Filter by tool, series, or format to find a specific tutorial or replay.",
+            url: "/videos",
+            tag: "Library",
+          },
+        ],
+      },
     ],
   },
 
@@ -1901,6 +2061,19 @@ const NODES: Record<string, PathNode> = {
             description: "Show up during a live session and share your screen — community participation is part of what makes Adobe Live special.",
             url: "/schedule",
             tag: "Live",
+          },
+        ],
+      },
+      {
+        label: "I want written tutorials and guides",
+        icon: BookOpen,
+        color: "#FF9A00",
+        destinations: [
+          {
+            label: "Blog",
+            description: "Readable articles and guides derived from Adobe Live sessions.",
+            url: "/blog",
+            tag: "Blog",
           },
         ],
       },
@@ -2009,6 +2182,8 @@ export default function PathFinder({ initialTool }: PathFinderProps) {
   const node = NODES[currentNodeId];
   const relatedLinks = useMemo(() => destinations ? computeRelatedLinks(destinations) : [], [destinations]);
 
+  const intro = sectionIntro(activeTool);
+
   function handleOption(option: (typeof node.options)[0]) {
     const entry: HistoryEntry = {
       nodeId: currentNodeId,
@@ -2087,14 +2262,14 @@ export default function PathFinder({ initialTool }: PathFinderProps) {
               className="text-[11px] font-semibold uppercase tracking-[0.16em] bg-clip-text text-transparent"
               style={{ backgroundImage: "linear-gradient(90deg, #FA0F00 0%, #FF6B00 45%, #FFD200 100%)" }}
             >
-              Find your content
+              {intro.kicker}
             </span>
           </div>
           <h2 className="text-white text-2xl sm:text-3xl font-semibold tracking-tight leading-[1.2]">
-            What are you looking for?
+            {intro.title}
           </h2>
           <p className="text-white/42 text-[15px] mt-3 max-w-2xl leading-relaxed">
-            Answer a few questions and we&apos;ll send you straight to the right playlist or show.
+            {intro.body}
           </p>
         </motion.div>
 
@@ -2167,17 +2342,17 @@ export default function PathFinder({ initialTool }: PathFinderProps) {
               </div>
 
               {history.length > 0 && (
-                <div className="flex gap-3">
+                <div className="flex gap-4">
                   <button
                     onClick={goBack}
-                    className="flex items-center gap-1.5 text-white/40 hover:text-white/70 text-xs font-medium transition-colors duration-200"
+                    className="flex items-center gap-1.5 text-white/38 hover:text-white/65 text-xs font-medium transition-colors duration-200"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     Previous step
                   </button>
                   <button
                     onClick={reset}
-                    className="flex items-center gap-1.5 text-white/30 hover:text-white/60 text-xs font-medium transition-colors duration-200"
+                    className="flex items-center gap-1.5 text-white/28 hover:text-white/55 text-xs font-medium transition-colors duration-200"
                   >
                     Start again
                   </button>
@@ -2193,16 +2368,18 @@ export default function PathFinder({ initialTool }: PathFinderProps) {
               transition={{ duration: 0.25 }}
             >
               {/* Result card */}
-              <div className="rounded-2xl border border-[#FA0F00]/25 bg-[#FA0F00]/5 p-6 sm:p-8 mb-4">
+              <div className="rounded-2xl border border-[#FA0F00]/20 bg-[#FA0F00]/[0.04] p-6 sm:p-8 mb-4 shadow-[0_20px_60px_rgba(0,0,0,0.3)]">
                 <div className="flex items-center gap-2 mb-5">
-                  <div className="w-2 h-2 rounded-full bg-[#FA0F00] animate-pulse" />
-                  <span className="text-[#FA0F00] text-[11px] font-semibold uppercase tracking-[0.14em]">Suggested destinations</span>
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#FA0F00]" />
+                  <span className="text-[#FA0F00]/90 text-[11px] font-semibold uppercase tracking-[0.14em]">
+                    Suggested destinations
+                  </span>
                 </div>
 
                 <div className="flex flex-col gap-3">
                   {destinations.map((dest) => {
                     const isExternal = dest.url.startsWith("http");
-                    const cardClass = "group flex items-start gap-4 p-4 rounded-xl border border-white/8 bg-white/3 hover:border-white/20 hover:bg-white/6 transition-all duration-200";
+                    const cardClass = "group flex items-start gap-4 p-4 rounded-xl border border-white/[0.07] bg-white/[0.02] hover:border-white/[0.14] hover:bg-white/[0.045] transition-all duration-200";
                     const inner = (
                       <>
                         <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-[#FA0F00]/15 border border-[#FA0F00]/25 flex items-center justify-center mt-0.5">
@@ -2240,13 +2417,13 @@ export default function PathFinder({ initialTool }: PathFinderProps) {
 
               {/* More to explore */}
               {relatedLinks.length > 0 && (
-                <div className="mt-4 rounded-2xl border border-white/8 bg-white/[0.02] p-5 sm:p-6">
-                  <p className="text-white/35 text-[11px] font-semibold uppercase tracking-[0.12em] mb-4">Also worth a look</p>
+                <div className="mt-4 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5 sm:p-6">
+                  <p className="text-white/32 text-[11px] font-semibold uppercase tracking-[0.14em] mb-4">Also worth a look</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {relatedLinks.map((link) => {
                       const isExternal = link.external || link.url.startsWith("http");
                       const inner = (
-                        <div className="group flex items-center gap-3 p-3 rounded-xl border border-white/6 bg-white/[0.02] hover:border-white/15 hover:bg-white/5 transition-all duration-200">
+                        <div className="group flex items-center gap-3 p-3 rounded-xl border border-white/[0.06] bg-white/[0.015] hover:border-white/[0.12] hover:bg-white/[0.04] transition-all duration-200">
                           <div className="flex-shrink-0 w-7 h-7 rounded-lg bg-white/6 flex items-center justify-center">
                             <link.icon className="w-3.5 h-3.5 text-white/40 group-hover:text-white/65 transition-colors duration-200" />
                           </div>
@@ -2276,17 +2453,17 @@ export default function PathFinder({ initialTool }: PathFinderProps) {
                 </div>
               )}
 
-              <div className="flex gap-3 mt-4">
+              <div className="flex gap-4 mt-4">
                 <button
                   onClick={goBack}
-                  className="flex items-center gap-1.5 text-white/40 hover:text-white/70 text-xs font-medium transition-colors duration-200"
+                  className="flex items-center gap-1.5 text-white/38 hover:text-white/65 text-xs font-medium transition-colors duration-200"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
                   Previous step
                 </button>
                 <button
                   onClick={reset}
-                  className="flex items-center gap-1.5 text-white/30 hover:text-white/60 text-xs font-medium transition-colors duration-200"
+                  className="flex items-center gap-1.5 text-white/28 hover:text-white/55 text-xs font-medium transition-colors duration-200"
                 >
                   Start again
                 </button>

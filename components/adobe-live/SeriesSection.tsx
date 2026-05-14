@@ -95,6 +95,7 @@ function SeriesCard({ show, index }: { show: RecurringSeries; index: number }) {
         videoUrl: show.playlistUrl,
         videoCount: show.videoCount,
         playlistId: show.playlistId,
+        seriesSlug: show.id,
       })}
       {...sharedMotionProps}
     >
