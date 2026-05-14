@@ -1306,7 +1306,9 @@ const COURSE_PLAYLISTS: CoursePlaylist[] = [
 ];
 
 export async function getCourses(): Promise<CoursePlaylist[]> {
-  return withCache("courses", async () => COURSE_PLAYLISTS);
+  // Static config from this deploy — do not cache in youtube_cache or new courses
+  // stay invisible until the cache TTL expires.
+  return COURSE_PLAYLISTS;
 }
 
 function mapVideoIndexRowsToPlaylistItems(
