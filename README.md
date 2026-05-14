@@ -79,16 +79,34 @@ The Edge Function **`index-all-videos`** walks the channel uploads playlist and 
 
 If the job fails, open the log: it prints **HTTP status** and the first part of the response body. **Exit code 22** (older runs) meant curl’s **`-f`** flag saw a non-2xx response — typical causes: **`SUPABASE_URL`** typo or trailing junk (must be like `https://xxxx.supabase.co`), **wrong key** (use **`service_role`**, not anon), **`index-all-videos` not deployed** to that project (404), or **`YOUTUBE_API_KEY` missing** in Supabase Edge Function secrets (often **503** in the body). Fix secrets, redeploy the function, then **Re-run workflow**.
 
-**HTTP 404** specifically means the Edge Function URL is wrong or **`index-all-videos` was never deployed** to this project. Deploy from the repo root (requires [Supabase CLI](https://supabase.com/docs/guides/cli) and a linked project):
+**HTTP 404** specifically means the Edge Function URL is wrong or **`index-all-videos` was never deployed** to this project.
+
+### One-time: deploy functions from this repo
+
+1. Install the [Supabase CLI](https://supabase.com/docs/guides/cli/getting-started) (e.g. macOS: `brew install supabase/tap/supabase`).
+2. In the **repo root**, log in and link your **hosted** project (ref = **Dashboard → Project Settings → General → Reference ID**):
 
 ```bash
 supabase login
-supabase link --project-ref <your-project-ref>   # Dashboard → Project Settings → General → Reference ID
-supabase secrets set YOUTUBE_API_KEY=<your-youtube-data-api-key>   # Dashboard → Edge Functions → Secrets, or CLI
-supabase functions deploy index-all-videos
+supabase link --project-ref <your-project-ref>
 ```
 
-Confirm in **Dashboard → Edge Functions** that **`index-all-videos`** appears, then re-run the GitHub Action.
+3. Set the YouTube key for Edge Functions (**Dashboard → Edge Functions → Manage secrets**, or CLI):
+
+```bash
+supabase secrets set YOUTUBE_API_KEY=<your-youtube-data-api-key>
+```
+
+4. Deploy all bundled functions (or at minimum `index-all-videos`):
+
+```bash
+./scripts/deploy-supabase-functions.sh
+# or: supabase functions deploy index-all-videos
+```
+
+5. Confirm **Dashboard → Edge Functions** lists **`index-all-videos`**, then re-run the GitHub Action.
+
+The repo includes **`supabase/config.toml`** so the CLI has a valid local config; linking connects it to your cloud project.
 
 Site-side “stale index” triggers (`/videos`, `getSchedule`) only fire if the index is older than **`INDEX_ALL_VIDEOS_STALE_MS`** (48 hours) in `lib/indexing-config.ts`, so they act as a **backup** if the cron misses a day instead of doubling full indexes after every daily cron.
 

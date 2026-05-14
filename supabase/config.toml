@@ -1,0 +1,19 @@
+# Supabase CLI — https://supabase.com/docs/guides/cli/config
+# `project_id` is the local stack name. Link the repo to your hosted project:
+#   supabase login && supabase link --project-ref <YOUR_REF>
+# Then deploy Edge Functions, e.g. ./scripts/deploy-supabase-functions.sh
+
+project_id = "adobeliveyoutube1"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+# Match hosted Postgres if you use `supabase db` commands (Dashboard → Database → version).
+major_version = 15

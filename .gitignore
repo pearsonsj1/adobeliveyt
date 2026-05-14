@@ -34,3 +34,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Supabase CLI (after `supabase link` — do not commit)
+supabase/.temp/
+.branches/
