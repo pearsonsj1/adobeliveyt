@@ -1,23 +1,14 @@
-import { createClient } from "@supabase/supabase-js";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
 import Header from "@/components/adobe-live/Header";
 import SocialFooter from "@/components/adobe-live/SocialFooter";
-import { fetchAllVideoIndexRows } from "@/lib/video-index-pagination";
-import { isShortFormatVideo } from "@/lib/youtube";
-import {
-  getToolPlaylistConfigBySlug,
-  indexTagFiltersForToolSlug,
-  TOOL_PLAYLIST_CONFIG,
-  youtubePlaylistUrl,
-} from "@/lib/tool-playlists";
+import { getPlaylistVideos, isShortFormatVideo } from "@/lib/youtube";
+import { getToolPlaylistConfigBySlug, TOOL_PLAYLIST_CONFIG, youtubePlaylistUrl } from "@/lib/tool-playlists";
 
 export const revalidate = 86400;
 
 const SITE_URL = "https://adobelive.com";
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
 const TOOL_META: Record<string, { name: string; color: string; desc: string; tag: string }> = {
   "photoshop":    { name: "Photoshop",    color: "#31A8FF", tag: "Photoshop",    desc: "Photo editing, compositing, retouching, and AI-powered design with Adobe Photoshop." },
@@ -29,7 +20,7 @@ const TOOL_META: Record<string, { name: string; color: string; desc: string; tag
   "express":      { name: "Adobe Express",color: "#FF9A00", tag: "Express",      desc: "Quick design for social media, flyers, and templates with Adobe Express." },
   "indesign":     { name: "InDesign",     color: "#FF3366", tag: "InDesign",     desc: "Layout design for print, editorial, and digital publishing with Adobe InDesign." },
   "fresco":       { name: "Fresco",       color: "#00C2A8", tag: "Fresco",       desc: "Digital painting and illustration with Adobe Fresco." },
-  "substance-3d": { name: "Substance 3D", color: "#FF6C37", tag: "Substance 3D", desc: "3D texturing, materials, and rendering with Adobe Substance 3D." },
+  "substance-3d": { name: "Substance 3D", color: "#FF6C37", tag: "Substance 3D", desc: "3D texturing, materials, and rendering for designers." },
 };
 
 interface Video {
@@ -68,22 +59,6 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 }
 
-function mergeVideoRowsById<T extends { id: string; published_at: string | null }>(rows: T[]): T[] {
-  const byId = new Map<string, T>();
-  for (const r of rows) {
-    if (!byId.has(r.id)) byId.set(r.id, r);
-  }
-  return Array.from(byId.values()).sort(
-    (a, b) => new Date(b.published_at ?? 0).getTime() - new Date(a.published_at ?? 0).getTime(),
-  );
-}
-
-/** Replays and uploads: hide scheduled streams and currently-live rows only. */
-function isPlayableToolIndexRow(r: { stream_status: string | null }): boolean {
-  const s = r.stream_status;
-  return s !== "upcoming" && s !== "live";
-}
-
 export default async function ToolPage({ params }: { params: { tool: string } }) {
   const meta = TOOL_META[params.tool];
   if (!meta) notFound();
@@ -91,78 +66,17 @@ export default async function ToolPage({ params }: { params: { tool: string } })
   const playlistCfg = getToolPlaylistConfigBySlug(params.tool);
   const officialPlaylistUrl = playlistCfg ? youtubePlaylistUrl(playlistCfg.playlistId) : null;
 
-  type VideoRow = {
-    id: string;
-    title: string;
-    thumbnail_url: string;
-    video_url: string;
-    published_at: string | null;
-    duration: string | null;
-    tags: string[] | null;
-    description: string | null;
-    stream_status: string | null;
-  };
-  const selectCols =
-    "id, title, thumbnail_url, video_url, published_at, duration, tags, description, stream_status";
+  const items = playlistCfg ? await getPlaylistVideos(playlistCfg.playlistId) : [];
 
-  let rows: VideoRow[] = [];
-  if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const combined: VideoRow[] = [];
-
-    for (const tag of indexTagFiltersForToolSlug(params.tool, meta.tag)) {
-      const part = await fetchAllVideoIndexRows<VideoRow>((rangeFrom, rangeTo) =>
-        supabase
-          .from("video_index")
-          .select(selectCols)
-          .eq("is_short", false)
-          .contains("tags", [tag])
-          .order("published_at", { ascending: false })
-          .range(rangeFrom, rangeTo),
-      );
-      combined.push(...part.filter(isPlayableToolIndexRow));
-    }
-
-    if (playlistCfg) {
-      const byPlaylist = await fetchAllVideoIndexRows<VideoRow>((rangeFrom, rangeTo) =>
-        supabase
-          .from("video_index")
-          .select(selectCols)
-          .eq("is_short", false)
-          .contains("playlist_ids", [playlistCfg.playlistId])
-          .order("published_at", { ascending: false })
-          .range(rangeFrom, rangeTo),
-      );
-      combined.push(...byPlaylist.filter(isPlayableToolIndexRow));
-    }
-
-    rows = mergeVideoRowsById(combined);
-  }
-
-  if (rows.length === 0 && SUPABASE_URL && SUPABASE_ANON_KEY) {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const hint = meta.tag;
-    const fallback = await fetchAllVideoIndexRows<VideoRow>((rangeFrom, rangeTo) =>
-      supabase
-        .from("video_index")
-        .select(selectCols)
-        .eq("is_short", false)
-        .or(`title.ilike.%${hint}%,description.ilike.%${hint}%`)
-        .order("published_at", { ascending: false })
-        .range(rangeFrom, rangeTo),
-    );
-    rows = mergeVideoRowsById(fallback.filter(isPlayableToolIndexRow));
-  }
-
-  const videos: Video[] = rows
+  const videos: Video[] = items
     .map((v) => ({
       id: v.id,
       title: v.title,
-      thumbnail_url: v.thumbnail_url,
-      video_url: v.video_url,
-      published_at: v.published_at,
+      thumbnail_url: v.thumbnail,
+      video_url: `https://www.youtube.com/watch?v=${v.id}`,
+      published_at: v.publishedAt || null,
       duration: v.duration ?? "",
-      tags: v.tags ?? [],
+      tags: [],
       description: v.description ?? "",
     }))
     .filter((v) => !isShortFormatVideo({ duration: v.duration, videoUrl: v.video_url }));
@@ -243,12 +157,10 @@ export default async function ToolPage({ params }: { params: { tool: string } })
         {videos.length === 0 ? (
           <div className="py-20 text-center space-y-4 max-w-md mx-auto">
             <p className="text-white/40 text-sm leading-relaxed">
-              No replay rows matched yet. The index should tag videos with{" "}
-              <span className="text-white/55">{indexTagFiltersForToolSlug(params.tool, meta.tag).join(" · ")}</span>
-              {" "}or store the official playlist id on each row (run{" "}
-              <code className="text-white/55">index-all-videos</code> and optionally{" "}
-              <code className="text-white/55">backfill-playlist-membership</code>). Scheduled and currently-live streams
-              are hidden; completed live replays are included.
+              No videos loaded for the official playlist yet (YouTube API or quota). The site falls back to your
+              Supabase <code className="text-white/55">video_index</code> when the API returns nothing. Playlist
+              responses are cached about <span className="text-white/55">24 hours</span> per playlist; try again after
+              the cache window or check the <code className="text-white/55">youtube-proxy</code> edge function.
             </p>
             <Link
               href={`/videos?tool=${encodeURIComponent(meta.tag)}`}

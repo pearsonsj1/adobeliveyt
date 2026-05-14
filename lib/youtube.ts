@@ -1538,55 +1538,54 @@ export async function getPlaylistVideos(
   playlistId: string,
   cacheTtlMs: number = CACHE_TTL_MS,
 ): Promise<PlaylistVideoItem[]> {
-  // v8: new cache namespace + index-first + do not persist empty arrays (backfill visibility).
+  // v9: YouTube Data API (via proxy) is the source of truth for playlist membership. Each
+  // playlist is cached in `youtube_cache` for `cacheTtlMs` (default 24h). When the API
+  // returns nothing or errors, fall back to `video_index` (tags / playlist_ids / series hints).
   return withCache(
-    `playlist_videos:v8:${playlistId}`,
+    `playlist_videos:v9:${playlistId}`,
     async () => {
-      const fromIndex = await getPlaylistVideosFromIndex(playlistId);
-      if (fromIndex.length > 0) {
-        return sortPlaylistItemsNewestFirst(fromIndex);
-      }
-
       try {
         const data = await proxyFetch("playlist_videos", { playlistId }) as YTPlaylistItemResponse | null;
-        if (!data?.items?.length) {
-          return getPlaylistVideosFromIndex(playlistId);
+        if (data?.items?.length) {
+          const videoIds = data.items.map((i) => i.contentDetails.videoId).join(",");
+          const statsData = await proxyFetch("playlist_video_stats", { ids: videoIds }) as YTVideoResponse | null;
+          const statsMap = new Map<string, YTVideoItem>();
+          if (statsData?.items) {
+            for (const v of statsData.items) statsMap.set(v.id, v);
+          }
+
+          const out: PlaylistVideoItem[] = [];
+          for (const item of data.items) {
+            const id = item.contentDetails.videoId;
+            const vid = statsMap.get(id);
+            if (vid?.status?.privacyStatus === "private") continue;
+
+            out.push({
+              id,
+              title: decodeHtmlEntities(item.snippet.title),
+              thumbnail: bestThumb(item.snippet.thumbnails),
+              duration: vid?.contentDetails?.duration ? parseDuration(vid.contentDetails.duration) : "",
+              publishedAt: item.snippet.publishedAt,
+              viewCount: vid ? parseInt(vid.statistics?.viewCount ?? "0") : 0,
+              position: item.snippet.position,
+              description: vid?.snippet?.description ? decodeHtmlEntities(vid.snippet.description) : "",
+            });
+          }
+
+          if (out.length > 0) {
+            return sortPlaylistItemsNewestFirst(out);
+          }
         }
-
-        const videoIds = data.items.map((i) => i.contentDetails.videoId).join(",");
-        const statsData = await proxyFetch("playlist_video_stats", { ids: videoIds }) as YTVideoResponse | null;
-        const statsMap = new Map<string, YTVideoItem>();
-        if (statsData?.items) {
-          for (const v of statsData.items) statsMap.set(v.id, v);
-        }
-
-        const out: PlaylistVideoItem[] = [];
-        for (const item of data.items) {
-          const id = item.contentDetails.videoId;
-          const vid = statsMap.get(id);
-          if (vid?.status?.privacyStatus === "private") continue;
-
-          out.push({
-            id,
-            title: decodeHtmlEntities(item.snippet.title),
-            thumbnail: bestThumb(item.snippet.thumbnails),
-            duration: vid?.contentDetails?.duration ? parseDuration(vid.contentDetails.duration) : "",
-            publishedAt: item.snippet.publishedAt,
-            viewCount: vid ? parseInt(vid.statistics?.viewCount ?? "0") : 0,
-            position: item.snippet.position,
-            description: vid?.snippet?.description ? decodeHtmlEntities(vid.snippet.description) : "",
-          });
-        }
-
-        if (out.length === 0) return getPlaylistVideosFromIndex(playlistId);
-        return sortPlaylistItemsNewestFirst(out);
       } catch {
-        return getPlaylistVideosFromIndex(playlistId);
+        /* fall through to index */
       }
+
+      const fromIndex = await getPlaylistVideosFromIndex(playlistId);
+      return sortPlaylistItemsNewestFirst(fromIndex);
     },
     cacheTtlMs,
     false,
-    false,
+    true,
   );
 }
 
